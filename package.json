@@ -1,0 +1,38 @@
+{
+  "name": "meta-cli",
+  "version": "0.1.0",
+  "description": "A CLI for Meta's APIs. For devs tired of token gymnastics.",
+  "main": "index.js",
+  "bin": {
+    "meta": "./bin/meta.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "meta",
+    "facebook",
+    "instagram",
+    "whatsapp",
+    "graph-api",
+    "cli"
+  ],
+  "author": "Chaos Craft Labs",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.1.0",
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "inquirer": "^8.2.5",
+    "conf": "^10.2.0",
+    "ora": "^5.4.1",
+    "table": "^6.8.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.54.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
