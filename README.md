@@ -179,6 +179,9 @@ meta post create --message "Draft post" --draft
 
 # Post a photo by URL
 meta post photo --url "https://example.com/image.jpg" --caption "Hello"
+
+# Or upload a local file
+meta post photo --file "./image.jpg" --caption "Hello"
 ```
 
 ## Configuration

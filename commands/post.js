@@ -1,6 +1,10 @@
 const chalk = require('chalk');
 const ora = require('ora');
+const axios = require('axios');
 const inquirer = require('inquirer');
+const fs = require('fs');
+const path = require('path');
+const FormData = require('form-data');
 const config = require('../lib/config');
 const MetaAPIClient = require('../lib/api-client');
 
@@ -222,7 +226,8 @@ function registerPostCommands(program) {
     .command('photo')
     .description('Post a photo by URL to a Facebook Page')
     .option('-p, --page <pageId>', 'Facebook Page ID (defaults to configured)')
-    .requiredOption('--url <imageUrl>', 'Publicly accessible image URL')
+    .option('--url <imageUrl>', 'Publicly accessible image URL')
+    .option('--file <path>', 'Local file path to upload (multipart)')
     .option('-c, --caption <caption>', 'Caption text')
     .option('--draft', 'Upload as unpublished (published=false)')
     .option('--json', 'Output as JSON')
@@ -235,36 +240,103 @@ function registerPostCommands(program) {
         process.exit(1);
       }
 
-      const { page: pageArg, url, caption, draft, json, dryRun, verbose } = options;
+      const { page: pageArg, url, file, caption, draft, json, dryRun, verbose } = options;
+      const hasUrl = Boolean(url);
+      const hasFile = Boolean(file);
+
+      if ((hasUrl && hasFile) || (!hasUrl && !hasFile)) {
+        console.error(chalk.red('X Provide exactly one of: --url, --file'));
+        process.exit(1);
+      }
+
       const { pageId, pageName, pageAccessToken } = await resolvePageContext(token, pageArg);
 
-      const payload = { url };
-      if (caption) payload.caption = caption;
-      if (draft) payload.published = false;
-
       const endpoint = `/${pageId}/photos`;
-      if (verbose || dryRun) {
-        printRequestDebug({ method: 'POST', endpoint, payload });
-      }
-      if (dryRun) return;
-
-      const spinner = ora('Posting photo...').start();
       const pageClient = new MetaAPIClient(pageAccessToken, 'facebook');
-      const result = await pageClient.post(endpoint, payload);
-      spinner.stop();
 
-      if (json) {
-        console.log(JSON.stringify(result, null, 2));
+      // URL mode (simple JSON payload)
+      if (hasUrl) {
+        const payload = { url };
+        if (caption) payload.caption = caption;
+        if (draft) payload.published = false;
+
+        if (verbose || dryRun) {
+          printRequestDebug({ method: 'POST', endpoint, payload });
+        }
+        if (dryRun) return;
+
+        const spinner = ora('Posting photo...').start();
+        const result = await pageClient.post(endpoint, payload);
+        spinner.stop();
+
+        if (json) {
+          console.log(JSON.stringify(result, null, 2));
+          return;
+        }
+
+        console.log(chalk.green('OK Photo posted'));
+        if (result?.id) console.log(chalk.cyan('  ID:'), result.id);
+        console.log(chalk.cyan('  Page:'), `${pageName} (${pageId})`);
+        if (draft) console.log(chalk.cyan('  Published:'), chalk.yellow('No (unpublished)'));
+        console.log('');
         return;
       }
 
-      console.log(chalk.green('OK Photo posted'));
-      if (result?.id) console.log(chalk.cyan('  ID:'), result.id);
-      console.log(chalk.cyan('  Page:'), `${pageName} (${pageId})`);
-      if (draft) console.log(chalk.cyan('  Published:'), chalk.yellow('No (unpublished)'));
-      console.log('');
+      // File mode (multipart form-data with "source")
+      const absPath = path.resolve(String(file));
+      if (!fs.existsSync(absPath)) {
+        console.error(chalk.red(`X File not found: ${absPath}`));
+        process.exit(1);
+      }
+
+      if (verbose || dryRun) {
+        printRequestDebug({
+          method: 'POST',
+          endpoint,
+          payload: {
+            file: absPath,
+            caption: caption || undefined,
+            published: draft ? false : undefined
+          }
+        });
+      }
+      if (dryRun) return;
+
+      const form = new FormData();
+      form.append('source', fs.createReadStream(absPath));
+      if (caption) form.append('caption', caption);
+      if (draft) form.append('published', 'false');
+
+      const spinner = ora('Uploading photo...').start();
+      try {
+        const response = await axios.post(
+          `${pageClient.baseUrl}${endpoint}`,
+          form,
+          {
+            params: { access_token: pageAccessToken },
+            headers: form.getHeaders(),
+            maxBodyLength: Infinity
+          }
+        );
+        spinner.stop();
+
+        const result = response.data;
+
+        if (json) {
+          console.log(JSON.stringify(result, null, 2));
+          return;
+        }
+
+        console.log(chalk.green('OK Photo uploaded'));
+        if (result?.id) console.log(chalk.cyan('  ID:'), result.id);
+        console.log(chalk.cyan('  Page:'), `${pageName} (${pageId})`);
+        if (draft) console.log(chalk.cyan('  Published:'), chalk.yellow('No (unpublished)'));
+        console.log('');
+      } catch (error) {
+        spinner.stop();
+        pageClient.handleError(error);
+      }
     });
 }
 
 module.exports = registerPostCommands;
-
