@@ -1,6 +1,6 @@
 # meta-cli
 
-> A command-line tool for Meta's APIs. For devs tired of token gymnastics.
+A CLI for Meta's APIs. For devs tired of token gymnastics.
 
 ```text
     __  ___      __        ________    ________
@@ -10,310 +10,165 @@
 /_/  /_/\__,_/\__/\__,_/\____/_____/___/\____/
 ```
 
-Tired of clicking through 47 dialogs to get a token? Fed up with decoding cryptic Graph API errors? Done with copy-pasting curl commands like it's 2010? This CLI is built to streamline the Meta API workflow.
+Built by Chaos Craft Labs.
 
-## Features
-
-- 🔐 **Token Management** - Store and manage access tokens for Facebook, Instagram, and WhatsApp
-- 🚀 **Quick Queries** - Make API requests without writing full scripts
-- ⚙️ **App Configuration** - Manage app credentials and settings
-- 📊 **Rate Limit Checking** - Monitor your API usage and avoid hitting limits
-- 🎨 **Beautiful Output** - Readable, colorized output (not just JSON dumps)
-- 💡 **Helpful Errors** - Error messages that actually tell you what went wrong
-
-## Installation
+## Install
 
 ```bash
 npm install -g @vishalgojha/meta-cli
+meta --help
 ```
 
-Or run directly with npx:
+## Config Location
 
-```bash
-npx @vishalgojha/meta-cli
-```
+All config is stored here (cross-platform):
+
+- `~/.meta-cli/config.json`
+
+This includes API version, default IDs, and tokens. The CLI never prints full tokens.
+
+## Command Groups
+
+- `auth`: login/app creds/debug token/scopes/status/logout
+- `query`: read-only queries (me/pages/instagram-media/feed)
+- `post`: create posts/photos/videos for Facebook Pages
+- `instagram`: IG accounts/media/insights/comments/publish
+- `whatsapp`: send messages, templates, phone numbers
+- `marketing`: ads accounts, campaigns, insights (async), ad sets, creatives
+- `utils`: config helpers, api version, limits
+- `agent`: safe planning + execution with scoped memory
+
+Run `meta <group> --help` for full flags per command.
 
 ## Quick Start
 
-### 1. Authenticate
-
 ```bash
-# Login with Facebook
+# 1) Login (opens token page, then prompts)
 meta auth login --api facebook
 
-# Login with Instagram
-meta auth login --api instagram
+# 2) Query
+meta query me --fields id,name
+meta query pages --table
 
-# Login with WhatsApp
-meta auth login --api whatsapp
-
-# Configure app credentials
-meta auth app
-```
-
-### 2. Make Your First Query
-
-```bash
-# Get your profile info
-meta query me
-
-# Get your Facebook pages
-meta query pages
-
-# Get Instagram media
-meta query instagram-media
-```
-
-### 3. Check Rate Limits
-
-```bash
-meta limits check
-```
-
-## Commands
-
-### Authentication (`meta auth`)
-
-Manage your access tokens and app credentials.
-
-```bash
-# Login with a token
-meta auth login --api facebook --token YOUR_TOKEN
-
-# Login interactively (prompts for token)
-meta auth login
-
-# Configure app credentials
-meta auth app --id YOUR_APP_ID --secret YOUR_APP_SECRET
-
-# Check authentication status
-meta auth status
-
-# Debug a token
-meta auth debug
-
-# Logout
-meta auth logout --api facebook
-meta auth logout --api all  # Remove all tokens
-```
-
-### Queries (`meta query`)
-
-Query Meta APIs without writing scripts.
-
-```bash
-# Get your profile
-meta query me
-meta query me --fields id,name,email,picture
-
-# Get Facebook pages
-meta query pages
-
-# Get Instagram media
-meta query instagram-media --limit 20
-
-# Custom API query
-meta query custom /me/photos --fields id,name,created_time
-meta query custom /PAGE_ID/posts --api facebook
-
-# Output as JSON
-meta query me --json
-```
-
-### App Management (`meta app`)
-
-Manage app information and configuration.
-
-```bash
-# Get app info
-meta app info
-
-# Get info for specific app
-meta app info --id YOUR_APP_ID
-
-# List configured apps
-meta app list
-
-# Set default app
-meta app set-default YOUR_APP_ID
-```
-
-### Rate Limits (`meta limits`)
-
-Monitor and understand rate limits.
-
-```bash
-# Check current rate limit status
-meta limits check
-
-# Show rate limit documentation
-meta limits docs
-```
-
-### Posting (`meta post`)
-
-Create posts on Facebook Pages (requires a Page access token; this CLI fetches it from `/me/accounts` using your stored Facebook token).
-
-```bash
-# List available Pages
-meta post pages
-
-# Interactively pick and save default Page
+# 3) Pick a default Page for posting
 meta post pages --set-default
 
-# Set a default Page ID (optional)
-meta post set-default PAGE_ID
-
-# Create a text post (uses default Page if set; otherwise prompts)
+# 4) Post
 meta post create --message "Hello from meta-cli"
-
-# Create a link post
-meta post create --message "New blog post" --link "https://example.com"
-
-# Schedule a post (ISO or unix seconds)
-meta post create --message "Scheduled post" --schedule "2026-03-01T10:00:00"
-meta post create --message "Scheduled post" --schedule 1772368800
-
-# Create an unpublished draft
-meta post create --message "Draft post" --draft
-
-# Post a photo by URL
-meta post photo --url "https://example.com/image.jpg" --caption "Hello"
-
-# Or upload a local file
-meta post photo --file "./image.jpg" --caption "Hello"
 ```
 
-## Configuration
+## Marketing API (Ads)
 
-Configuration is stored at:
-- macOS: `~/Library/Preferences/meta-cli-nodejs/`
-- Linux: `~/.config/meta-cli-nodejs/`
-- Windows: `%APPDATA%\meta-cli-nodejs\`
+Marketing API calls use your **Facebook token** and require permissions like:
 
-View your config:
-```bash
-meta auth status
-```
+- `ads_read` (read/list/insights)
+- `ads_management` (create/update)
 
-## Getting Access Tokens
+Many apps require **Advanced Access** for these scopes. If you get error `(#200)`, you likely need to re-auth with the right scopes and/or get app review/advanced access.
 
-### Facebook/Instagram
+### Common pains this CLI handles
 
-1. Go to [Meta for Developers](https://developers.facebook.com/)
-2. Create an app or select existing app
-3. Go to Tools > Graph API Explorer
-4. Generate an access token
-5. Copy the token and use: `meta auth login --token YOUR_TOKEN`
+- Async insights jobs (submit, poll, then fetch results) to avoid timeouts.
+- Backoff/retry on Ads throttling errors `#17` / `#32` and transient 5xx.
+- Full pagination loops on list endpoints.
 
-### WhatsApp Business
-
-1. Go to [Meta Business Suite](https://business.facebook.com/)
-2. Select your WhatsApp Business Account
-3. Go to Settings > API Setup
-4. Generate a permanent token
-5. Copy the token and use: `meta auth login --api whatsapp --token YOUR_TOKEN`
-
-## Examples
-
-### Check your Facebook page stats
+### Examples
 
 ```bash
-# Get your pages
-meta query pages
+# List ad accounts
+meta marketing accounts --table
 
-# Get specific page info
-meta query custom /PAGE_ID --fields name,fan_count,engagement
+# Set a default ad account for future commands
+meta marketing set-default-account act_123
+
+# Upload an image to get image_hash
+meta marketing upload-image --file ./creative.png
+
+# List campaigns
+meta marketing campaigns --status ACTIVE --table
+
+# Async insights (recommended when using breakdowns)
+meta marketing insights --preset last_7d --level campaign --fields spend,impressions,clicks,ctr,cpc,cpm --breakdowns age,gender --table
+
+# Export insights to CSV/JSON
+meta marketing insights --preset last_7d --level campaign --fields spend,impressions,clicks --export ./report.csv
+meta marketing insights --preset last_7d --level campaign --fields spend,impressions,clicks --export ./report.json
+
+# Quick status (spend today + active campaigns + rate-limit header snapshot)
+meta marketing status
+
+# List ads + audiences
+meta marketing ads --table
+meta marketing audiences --table
+
+# Create ad set + creative + ad (high risk; defaults to PAUSED unless you set ACTIVE)
+meta marketing create-adset --campaign-id <CAMPAIGN_ID> --name "Test Adset" --billing-event IMPRESSIONS --optimization-goal LINK_CLICKS --targeting "{\"geo_locations\":{\"countries\":[\"US\"]}}"
+meta marketing create-creative --name "Test Creative" --page-id <PAGE_ID> --link "https://example.com" --message "Hello" --image-hash <IMAGE_HASH>
+meta marketing create-ad --name "Test Ad" --adset-id <ADSET_ID> --creative-id <CREATIVE_ID>
+
+# Operate safely: pause/resume + budget updates (high risk)
+meta marketing pause campaign <CAMPAIGN_ID>
+meta marketing resume adset <ADSET_ID>
+meta marketing set-budget campaign <CAMPAIGN_ID> --daily-budget 15000
+meta marketing set-budget adset <ADSET_ID> --daily-budget 8000
+
+# High risk: create a campaign (defaults to PAUSED)
+meta marketing create-campaign --name "Test Camp" --objective OUTCOME_SALES --daily-budget 10000
 ```
 
-### Monitor Instagram engagement
+## Agent Mode (Meta DevOps Co-pilot)
+
+`meta agent` plans first, then executes only after you confirm.
+
+### Safety Model
+
+- No shell exec, no arbitrary code.
+- Strict tool registry: agent steps must use registered tool names.
+- High-risk tools (example: `whatsapp.send`) require an extra confirmation per step.
+- Scoped memory (optional) stored at `~/.meta-cli/context/<scope>/`:
+  - `memory.json` (append-only entries: decision/status/config)
+  - `summary.md` (human-readable)
+- Secrets/tokens are redacted before writing memory.
+- Memory staleness (> 7 days) is warned during planning.
+
+### Usage
 
 ```bash
-# Get recent posts
-meta query instagram-media --limit 10
+meta agent "fix whatsapp webhook for clientA"
+meta agent --scope clientA "check auth + list pages"
 
-# Get detailed media info
-meta query custom /MEDIA_ID --fields like_count,comments_count,engagement
+# Plan only
+meta agent --plan-only "inspect app subscriptions"
+
+# Disable memory
+meta agent --no-memory "check my rate limits"
+
+# JSON output
+meta agent --json --plan-only "check my setup"
 ```
 
-### Automated scripts
+### Memory Commands
 
 ```bash
-#!/bin/bash
-# Check rate limits before running bulk operations
-USAGE=$(meta limits check --json | jq -r '.usage.call_count')
-
-if [ "$USAGE" -lt 75 ]; then
-  echo "Safe to proceed (${USAGE}% usage)"
-  # Run your bulk operations here
-else
-  echo "Rate limit high (${USAGE}%), waiting..."
-  sleep 300
-fi
+meta agent memory list
+meta agent memory show clientA
+meta agent memory forget clientA
+meta agent memory clear
 ```
 
-## API Support
+### LLM Key Setup
 
-| API | Status | Commands Available |
-|-----|--------|-------------------|
-| Facebook Graph API | ✅ Full | auth, query, app, limits |
-| Instagram Graph API | ✅ Full | auth, query, app, limits |
-| WhatsApp Business API | 🚧 Partial | auth, whatsapp, query, limits |
+For LLM planning, set `META_AGENT_API_KEY` (or `OPENAI_API_KEY`). If no key is set, the agent falls back to a conservative heuristic planner.
 
-### WhatsApp (`meta whatsapp`)
-
-WhatsApp Cloud API helpers.
-
-```bash
-# Send a text message
-meta whatsapp send --phone-number-id PHONE_NUMBER_ID --to +15551234567 --message "Hello!"
-
-# Fetch WABA info
-meta whatsapp business --business-id WABA_ID
+```powershell
+setx META_AGENT_API_KEY "YOUR_KEY"
+meta agent --provider openai --model gpt-4o-mini "list my pages"
 ```
 
-## Troubleshooting
+## Disclaimer
 
-### "Token validation failed"
-- Your token may be expired or invalid
-- Generate a new token from Meta for Developers
-- Make sure you're using the correct API (facebook/instagram/whatsapp)
-
-### "Rate limit exceeded"
-- You've made too many requests
-- Check limits with: `meta limits check`
-- Wait for the sliding window to reset (typically 1 hour)
-
-### "No token found"
-- You haven't authenticated yet
-- Run: `meta auth login --api YOURAPI`
-
-## Contributing
-
-Found a bug? Have a feature request? Want to improve the Meta API developer workflow?
-
-1. Fork the repo
-2. Create a feature branch
-3. Make your changes
-4. Submit a PR
-
-## Philosophy
-
-This tool is built on three principles:
-1. **Transparency** - Be explicit about constraints, tradeoffs, and API behavior.
-2. **Practicality** - Focus on what developers actually need, not what looks impressive.
-3. **Respect** - Full credit to Meta for providing these APIs. Zero credit for the developer experience.
+Unofficial tool. Not affiliated with, endorsed by, or sponsored by Meta Platforms, Inc.
 
 ## License
 
 MIT
-
-## Disclaimer
-
-This is an unofficial tool. Not affiliated with, endorsed by, or sponsored by Meta Platforms, Inc.
-
----
-
-**Built by Chaos Craft Labs.**
-
-If this tool saved you from clicking through one more Facebook dialog, consider giving it a star ⭐

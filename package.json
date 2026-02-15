@@ -1,6 +1,6 @@
 {
   "name": "@vishalgojha/meta-cli",
-  "version": "0.1.0",
+  "version": "0.2.2",
   "description": "A CLI for Meta's APIs. For devs tired of token gymnastics.",
   "main": "index.js",
   "bin": {
@@ -33,13 +33,12 @@
   "dependencies": {
     "axios": "^1.6.0",
     "chalk": "^4.1.2",
+    "cli-table3": "^0.6.5",
     "commander": "^11.1.0",
-    "conf": "^10.2.0",
     "dotenv": "^16.3.1",
     "form-data": "^4.0.5",
     "inquirer": "^8.2.5",
-    "ora": "^5.4.1",
-    "table": "^6.8.1"
+    "ora": "^5.4.1"
   },
   "devDependencies": {
     "eslint": "^8.54.0"

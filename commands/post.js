@@ -155,6 +155,7 @@ function registerPostCommands(program) {
     .command('create')
     .description('Create a Page post (message and/or link)')
     .option('-p, --page <pageId>', 'Facebook Page ID (defaults to configured)')
+    .option('--page-id <pageId>', 'Facebook Page ID (alias of --page)')
     .option('-m, --message <message>', 'Post message text')
     .option('-l, --link <url>', 'Link to attach')
     .option('--draft', 'Create an unpublished draft (published=false)')
@@ -169,7 +170,8 @@ function registerPostCommands(program) {
         process.exit(1);
       }
 
-      const { page: pageArg, message, link, draft, schedule, json, dryRun, verbose } = options;
+      const pageArg = options.pageId || options.page;
+      const { message, link, draft, schedule, json, dryRun, verbose } = options;
       const scheduledPublishTime = parseScheduleToUnixSeconds(schedule);
 
       if (schedule && !scheduledPublishTime) {
@@ -226,6 +228,7 @@ function registerPostCommands(program) {
     .command('photo')
     .description('Post a photo by URL to a Facebook Page')
     .option('-p, --page <pageId>', 'Facebook Page ID (defaults to configured)')
+    .option('--page-id <pageId>', 'Facebook Page ID (alias of --page)')
     .option('--url <imageUrl>', 'Publicly accessible image URL')
     .option('--file <path>', 'Local file path to upload (multipart)')
     .option('-c, --caption <caption>', 'Caption text')
@@ -240,7 +243,8 @@ function registerPostCommands(program) {
         process.exit(1);
       }
 
-      const { page: pageArg, url, file, caption, draft, json, dryRun, verbose } = options;
+      const pageArg = options.pageId || options.page;
+      const { url, file, caption, draft, json, dryRun, verbose } = options;
       const hasUrl = Boolean(url);
       const hasFile = Boolean(file);
 
@@ -335,6 +339,127 @@ function registerPostCommands(program) {
       } catch (error) {
         spinner.stop();
         pageClient.handleError(error);
+      }
+    });
+
+  post
+    .command('video')
+    .description('Upload and publish a video to a Facebook Page')
+    .option('-p, --page <pageId>', 'Facebook Page ID (defaults to configured)')
+    .option('--page-id <pageId>', 'Facebook Page ID (alias of --page)')
+    .requiredOption('--path <path>', 'Local file path to video')
+    .option('--title <title>', 'Video title')
+    .option('--description <text>', 'Video description')
+    .option('--json', 'Output as JSON')
+    .option('--dry-run', 'Print request details without calling the API')
+    .option('--verbose', 'Print request details')
+    .action(async (options) => {
+      const token = config.getToken('facebook');
+      if (!token) {
+        console.error(chalk.red('X No Facebook token found. Run: meta auth login -a facebook'));
+        process.exit(1);
+      }
+
+      const pageArg = options.pageId || options.page;
+      const { pageId, pageName, pageAccessToken } = await resolvePageContext(token, pageArg);
+
+      const absPath = path.resolve(String(options.path));
+      if (!fs.existsSync(absPath)) {
+        console.error(chalk.red(`X File not found: ${absPath}`));
+        process.exit(1);
+      }
+
+      const endpoint = `/${pageId}/videos`;
+      const payloadPreview = {
+        path: absPath,
+        title: options.title || undefined,
+        description: options.description || undefined
+      };
+
+      if (options.verbose || options.dryRun) {
+        printRequestDebug({ method: 'POST', endpoint, payload: payloadPreview });
+      }
+      if (options.dryRun) return;
+
+      const pageClient = new MetaAPIClient(pageAccessToken, 'facebook');
+
+      const form = new FormData();
+      form.append('source', fs.createReadStream(absPath));
+      if (options.title) form.append('title', options.title);
+      if (options.description) form.append('description', options.description);
+
+      const spinner = ora('Uploading video...').start();
+      try {
+        const response = await axios.post(
+          `${pageClient.baseUrl}${endpoint}`,
+          form,
+          {
+            params: { access_token: pageAccessToken },
+            headers: form.getHeaders(),
+            maxBodyLength: Infinity
+          }
+        );
+        spinner.stop();
+
+        const result = response.data;
+        if (options.json) {
+          console.log(JSON.stringify(result, null, 2));
+          return;
+        }
+
+        console.log(chalk.green('OK Video uploaded'));
+        if (result?.id) console.log(chalk.cyan('  ID:'), result.id);
+        console.log(chalk.cyan('  Page:'), `${pageName} (${pageId})`);
+        console.log('');
+      } catch (e) {
+        spinner.stop();
+        pageClient.handleError(e);
+      }
+    });
+
+  post
+    .command('delete')
+    .description('Delete a post by ID')
+    .requiredOption('--id <id>', 'Post ID to delete')
+    .option('--page-id <pageId>', 'If provided, delete using the Page access token (recommended)')
+    .option('--json', 'Output as JSON')
+    .option('--dry-run', 'Print request details without calling the API')
+    .option('--verbose', 'Print request details')
+    .action(async (options) => {
+      const token = config.getToken('facebook');
+      if (!token) {
+        console.error(chalk.red('X No Facebook token found. Run: meta auth login -a facebook'));
+        process.exit(1);
+      }
+
+      let deleteToken = token;
+      let ctx = null;
+      if (options.pageId) {
+        ctx = await resolvePageContext(token, options.pageId);
+        deleteToken = ctx.pageAccessToken;
+      }
+
+      const endpoint = `/${options.id}`;
+      if (options.verbose || options.dryRun) {
+        printRequestDebug({ method: 'DELETE', endpoint, payload: {} });
+      }
+      if (options.dryRun) return;
+
+      const spinner = ora('Deleting post...').start();
+      const client = new MetaAPIClient(deleteToken, 'facebook');
+      try {
+        const result = await client.delete(endpoint);
+        spinner.stop();
+        if (options.json) {
+          console.log(JSON.stringify(result, null, 2));
+          return;
+        }
+        console.log(chalk.green('OK Deleted'));
+        if (ctx) console.log(chalk.cyan('  Page:'), `${ctx.pageName} (${ctx.pageId})`);
+        console.log('');
+      } catch (e) {
+        spinner.stop();
+        client.handleError(e, { scopes: ['pages_manage_posts'] });
       }
     });
 }

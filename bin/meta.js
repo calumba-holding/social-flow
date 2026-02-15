@@ -14,6 +14,10 @@ const appCommands = require('../commands/app');
 const limitsCommands = require('../commands/limits');
 const postCommands = require('../commands/post');
 const whatsappCommands = require('../commands/whatsapp');
+const instagramCommands = require('../commands/instagram');
+const utilsCommands = require('../commands/utils');
+const agentCommands = require('../commands/agent');
+const marketingCommands = require('../commands/marketing');
 
 function showBanner() {
   const style = (process.env.META_CLI_BANNER_STYLE || 'slant').toLowerCase();
@@ -45,6 +49,10 @@ appCommands(program);
 limitsCommands(program);
 postCommands(program);
 whatsappCommands(program);
+instagramCommands(program);
+utilsCommands(program);
+agentCommands(program);
+marketingCommands(program);
 
 // Custom help
 program.on('--help', () => {
@@ -55,7 +63,11 @@ program.on('--help', () => {
   console.log('  $ meta app info                ' + chalk.gray('# View app configuration'));
   console.log('  $ meta limits check            ' + chalk.gray('# Check rate limits'));
   console.log('  $ meta post create --message "Hello" --page PAGE_ID  ' + chalk.gray('# Create a Page post'));
-  console.log('  $ meta whatsapp send --phone-number-id ID --to +15551234567 --message "Hello"  ' + chalk.gray('# Send a WhatsApp message'));
+  console.log('  $ meta whatsapp send --from PHONE_ID --to +15551234567 --body "Hello"  ' + chalk.gray('# Send a WhatsApp message'));
+  console.log('  $ meta instagram accounts list ' + chalk.gray('# List connected IG accounts'));
+  console.log('  $ meta utils config show       ' + chalk.gray('# Show config + defaults'));
+  console.log('  $ meta agent "fix whatsapp webhook for clientA"  ' + chalk.gray('# Plan first, then execute with confirmation'));
+  console.log('  $ meta marketing accounts      ' + chalk.gray('# List ad accounts'));
   console.log('');
   console.log(chalk.cyan('Documentation: https://github.com/vishalgojha/meta-cli'));
 });
