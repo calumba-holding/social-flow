@@ -3,20 +3,9 @@
 const { Command } = require('commander');
 const packageJson = require('../package.json');
 const { getBanner } = require('../lib/banner');
+const config = require('../lib/config');
 
 const program = new Command();
-
-// Import command modules
-const authCommands = require('../commands/auth');
-const queryCommands = require('../commands/query');
-const appCommands = require('../commands/app');
-const limitsCommands = require('../commands/limits');
-const postCommands = require('../commands/post');
-const whatsappCommands = require('../commands/whatsapp');
-const instagramCommands = require('../commands/instagram');
-const utilsCommands = require('../commands/utils');
-const agentCommands = require('../commands/agent');
-const marketingCommands = require('../commands/marketing');
 
 function getArgValue(name) {
   // Supports: --flag value, --flag=value
@@ -42,6 +31,14 @@ function getChalkForBanner() {
 
   const level = chalkLib.supportsColor ? chalkLib.supportsColor.level : 0;
   return new chalkLib.Instance({ level });
+}
+
+// Apply profile override early so all commands use the right config/profile.
+try {
+  const profile = getArgValue('--profile');
+  if (profile) config.useProfile(profile);
+} catch (e) {
+  // Don't crash on unknown profile before help; show a friendly error later.
 }
 
 function showBanner() {
@@ -78,11 +75,26 @@ if (shouldShowBanner && !process.argv.includes('--no-banner')) {
 program
   .name('meta')
   .description('A CLI for Meta\'s APIs. For devs tired of token gymnastics.')
+  .option('--profile <name>', 'Use a profile (multi-account). Does not persist; use `meta accounts switch` to persist.')
   .option('--no-banner', 'Disable the startup banner')
   .option('--banner-style <style>', 'Banner style: classic|slant|clean|compact', process.env.META_CLI_BANNER_STYLE || 'classic')
   .option('--color', 'Force colored output (overrides auto-detection)')
   .option('--no-color', 'Disable colored output')
   .version(packageJson.version);
+
+// Import command modules (after profile override is applied)
+const authCommands = require('../commands/auth');
+const queryCommands = require('../commands/query');
+const appCommands = require('../commands/app');
+const limitsCommands = require('../commands/limits');
+const postCommands = require('../commands/post');
+const whatsappCommands = require('../commands/whatsapp');
+const instagramCommands = require('../commands/instagram');
+const utilsCommands = require('../commands/utils');
+const agentCommands = require('../commands/agent');
+const marketingCommands = require('../commands/marketing');
+const accountsCommands = require('../commands/accounts');
+const batchCommands = require('../commands/batch');
 
 // Register command groups
 authCommands(program);
@@ -95,6 +107,8 @@ instagramCommands(program);
 utilsCommands(program);
 agentCommands(program);
 marketingCommands(program);
+accountsCommands(program);
+batchCommands(program);
 
 // Custom help
 program.on('--help', () => {
@@ -111,6 +125,9 @@ program.on('--help', () => {
   console.log('  $ meta utils config show       ' + chalk.gray('# Show config + defaults'));
   console.log('  $ meta agent "fix whatsapp webhook for clientA"  ' + chalk.gray('# Plan first, then execute with confirmation'));
   console.log('  $ meta marketing accounts      ' + chalk.gray('# List ad accounts'));
+  console.log('  $ meta accounts add clientA    ' + chalk.gray('# Create a profile'));
+  console.log('  $ meta --profile clientA query me  ' + chalk.gray('# Use a profile (one-off)'));
+  console.log('  $ meta batch run jobs.json     ' + chalk.gray('# Run a batch of tool jobs'));
   console.log('');
   console.log(chalk.cyan('Documentation: https://github.com/vishalgojha/meta-cli'));
 });

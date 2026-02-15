@@ -23,3 +23,8 @@
   - `create-ad <adsetId>` (auto-resolves ad account)
 - Marketing: `create-creative` supports `--image-url` and `--video-url` (auto-upload) plus `--body-text/--headline`.
 - Marketing: `insights --export ... --append` for CSV/JSON.
+
+## 0.2.4
+
+- Multi-account profiles: `meta accounts ...` and global `--profile <name>`.
+- Batch runner: `meta batch run jobs.(json|csv)` using registered tools.

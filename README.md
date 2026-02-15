@@ -54,6 +54,8 @@ This includes API version, default IDs, and tokens. The CLI never prints full to
 - `marketing`: ads accounts, campaigns, insights (async), ad sets, creatives
 - `utils`: config helpers, api version, limits
 - `agent`: safe planning + execution with scoped memory
+- `accounts`: manage multiple profiles (multi-client)
+- `batch`: run tool-based jobs from JSON/CSV
 
 Run `meta <group> --help` for full flags per command.
 
@@ -72,6 +74,49 @@ meta post pages --set-default
 
 # 4) Post
 meta post create --message "Hello from meta-cli"
+```
+
+## Multi-Account Profiles
+
+Use profiles to manage multiple clients/environments (agency-friendly). Tokens/default IDs are stored per profile.
+
+```bash
+meta accounts list
+meta accounts add clientA
+meta accounts switch clientA   # persists active profile
+
+# One-off: don't persist, just run using a profile
+meta --profile clientA query me
+```
+
+## Batch Runner
+
+Run a batch of tool-based jobs from a file. Jobs use the tool registry (the same safety model the agent uses).
+
+```bash
+meta batch run jobs.json --concurrency 3
+meta batch run jobs.csv --concurrency 2 --yes
+```
+
+Example `jobs.json`:
+
+```json
+[
+  { "id": "1", "profile": "clientA", "tool": "auth.status", "args": {} },
+  {
+    "id": "2",
+    "profile": "clientA",
+    "tool": "marketing.insights",
+    "args": {
+      "adAccountId": "act_123",
+      "preset": "last_7d",
+      "level": "campaign",
+      "fields": "spend,impressions,clicks",
+      "export": "./reports/clientA.csv",
+      "append": true
+    }
+  }
+]
 ```
 
 ## Marketing API (Ads)
