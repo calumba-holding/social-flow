@@ -93,6 +93,7 @@ meta marketing insights --preset last_7d --level campaign --fields spend,impress
 # Export insights to CSV/JSON
 meta marketing insights --preset last_7d --level campaign --fields spend,impressions,clicks --export ./report.csv
 meta marketing insights --preset last_7d --level campaign --fields spend,impressions,clicks --export ./report.json
+meta marketing insights --preset last_7d --level campaign --fields spend,impressions,clicks --export ./report.csv --append
 
 # Quick status (spend today + active campaigns + rate-limit header snapshot)
 meta marketing status
@@ -102,9 +103,9 @@ meta marketing ads --table
 meta marketing audiences --table
 
 # Create ad set + creative + ad (high risk; defaults to PAUSED unless you set ACTIVE)
-meta marketing create-adset --campaign-id <CAMPAIGN_ID> --name "Test Adset" --billing-event IMPRESSIONS --optimization-goal LINK_CLICKS --targeting "{\"geo_locations\":{\"countries\":[\"US\"]}}"
-meta marketing create-creative --name "Test Creative" --page-id <PAGE_ID> --link "https://example.com" --message "Hello" --image-hash <IMAGE_HASH>
-meta marketing create-ad --name "Test Ad" --adset-id <ADSET_ID> --creative-id <CREATIVE_ID>
+meta marketing create-adset <CAMPAIGN_ID> --name "Test Adset" --targeting "{\"geo_locations\":{\"countries\":[\"US\"]}}"
+meta marketing create-creative --name "Test Creative" --page-id <PAGE_ID> --link "https://example.com" --body-text "Hello" --image-url "https://example.com/creative.png" --call-to-action LEARN_MORE
+meta marketing create-ad <ADSET_ID> --name "Test Ad" --creative-id <CREATIVE_ID>
 
 # Operate safely: pause/resume + budget updates (high risk)
 meta marketing pause campaign <CAMPAIGN_ID>
@@ -115,6 +116,8 @@ meta marketing set-budget adset <ADSET_ID> --daily-budget 8000
 # High risk: create a campaign (defaults to PAUSED)
 meta marketing create-campaign --name "Test Camp" --objective OUTCOME_SALES --daily-budget 10000
 ```
+
+Safety note: Always test writes (`create-*`, `set-status`, `set-budget`) on a sandbox/test ad account first. These operations can affect real spend.
 
 ## Agent Mode (Meta DevOps Co-pilot)
 

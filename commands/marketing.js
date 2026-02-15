@@ -18,9 +18,14 @@ const {
   pollInsightsJob,
   fetchAsyncInsightsResults,
   printTableOrJson,
-  inferExportFormat,
-  toCsv,
-  writeFileAtomic,
+  exportInsights,
+  resolveActForCampaign,
+  resolveActForAdSet,
+  uploadAdImageByUrl,
+  uploadAdVideoByUrl,
+  createAdSet,
+  createCreative,
+  createAd,
   MetaAPIClient
 } = require('../lib/marketing');
 const { sanitizeForLog } = require('../lib/api');
@@ -368,6 +373,7 @@ function registerMarketingCommands(program) {
     .option('--limit <n>', 'Result page size', '500')
     .option('--export <path>', 'Write results to a file (csv or json)')
     .option('--export-format <fmt>', 'Export format: csv|json (default from extension)', '')
+    .option('--append', 'Append to export file (CSV: append rows; JSON: append into array if possible)')
     .option('--json', 'Output as JSON')
     .option('--table', 'Output as table')
     .option('--verbose', 'Verbose request logging (no secrets)')
@@ -424,19 +430,19 @@ function registerMarketingCommands(program) {
         spinner.stop();
 
         if (options.export) {
-          const exportPath = path.resolve(String(options.export));
-          const fmt = inferExportFormat(exportPath, options.exportFormat);
-          if (fmt !== 'csv' && fmt !== 'json') {
-            console.error(chalk.red('X Invalid --export-format. Use csv or json.'));
+          try {
+            const out = exportInsights({
+              rows,
+              exportPath: options.export,
+              format: options.exportFormat,
+              append: Boolean(options.append)
+            });
+            console.log(chalk.green(`OK Exported insights to: ${out.path}`));
+            if (out.appended) console.log(chalk.gray('  (appended)'));
+          } catch (e) {
+            console.error(chalk.red(`X Export failed: ${e.message}`));
             process.exit(1);
           }
-          if (fmt === 'json') {
-            writeFileAtomic(exportPath, JSON.stringify(sanitizeForLog(rows), null, 2) + '\n');
-          } else {
-            const cols = Object.keys(rows[0] || {});
-            writeFileAtomic(exportPath, toCsv(rows, cols));
-          }
-          console.log(chalk.green(`OK Exported insights to: ${exportPath}`));
           console.log('');
         }
 
@@ -538,17 +544,18 @@ function registerMarketingCommands(program) {
     });
 
   marketing
-    .command('create-adset [adAccountId]')
-    .description('Create an ad set (high risk: can affect spend once activated)')
-    .requiredOption('--campaign-id <id>', 'Campaign ID')
+    .command('create-adset <campaignId>')
+    .description('Create an ad set for a campaign (high risk: can affect spend once activated)')
     .requiredOption('--name <name>', 'Ad set name')
-    .requiredOption('--billing-event <event>', 'Billing event (e.g. IMPRESSIONS, LINK_CLICKS)')
-    .requiredOption('--optimization-goal <goal>', 'Optimization goal (e.g. OFFSITE_CONVERSIONS, LINK_CLICKS)')
+    .option('--status <status>', 'Status (ACTIVE or PAUSED)', 'PAUSED')
     .requiredOption('--targeting <json>', 'Targeting JSON (string)')
     .option('--targeting-file <path>', 'Targeting JSON file')
+    .option('--bidding <json>', 'Bidding JSON (string), e.g. {\"bid_strategy\":\"LOWEST_COST_WITHOUT_CAP\"}')
+    .option('--bidding-file <path>', 'Bidding JSON file')
+    .option('--billing-event <event>', 'Billing event (e.g. IMPRESSIONS, LINK_CLICKS)', 'IMPRESSIONS')
+    .option('--optimization-goal <goal>', 'Optimization goal (e.g. OFFSITE_CONVERSIONS, LINK_CLICKS)', 'LINK_CLICKS')
     .option('--promoted-object <json>', 'Promoted object JSON (string)')
     .option('--promoted-object-file <path>', 'Promoted object JSON file')
-    .option('--status <status>', 'Status (ACTIVE or PAUSED)', 'PAUSED')
     .option('--daily-budget <amount>', 'Daily budget in minor units (e.g. 10000)', '')
     .option('--lifetime-budget <amount>', 'Lifetime budget in minor units', '')
     .option('--start-time <iso>', 'Start time (ISO)', '')
@@ -557,16 +564,17 @@ function registerMarketingCommands(program) {
     .option('--dry-run', 'Print payload without calling the API')
     .option('--verbose', 'Verbose request logging (no secrets)')
     .option('--yes', 'Skip confirmation prompt')
-    .action(async (adAccountId, options) => {
+    .action(async (campaignId, options) => {
       warnIfOldApiVersion();
       const token = ensureMarketingToken();
-      const act = requireAct(adAccountId);
       const client = new MetaAPIClient(token, 'facebook');
 
       let targeting;
+      let bidding;
       let promotedObject;
       try {
         targeting = parseJsonArgOrFile(options.targeting, options.targetingFile, 'targeting');
+        bidding = parseJsonArgOrFile(options.bidding, options.biddingFile, 'bidding');
         promotedObject = parseJsonArgOrFile(options.promotedObject, options.promotedObjectFile, 'promoted-object');
       } catch (e) {
         console.error(chalk.red(`X ${e.message}`));
@@ -577,16 +585,29 @@ function registerMarketingCommands(program) {
         console.error(chalk.red('X --targeting is required and must be valid JSON object.'));
         process.exit(1);
       }
+      if (bidding && typeof bidding !== 'object') {
+        console.error(chalk.red('X --bidding must be valid JSON object.'));
+        process.exit(1);
+      }
+
+      let act = '';
+      try {
+        act = await resolveActForCampaign(client, campaignId, { verbose: Boolean(options.verbose), maxRetries: 5 });
+      } catch (e) {
+        console.error(chalk.red(`X Failed to resolve ad account for campaign ${campaignId}: ${e.message}`));
+        process.exit(1);
+      }
 
       const payload = {
         name: options.name,
-        campaign_id: options.campaignId,
+        campaign_id: campaignId,
         billing_event: String(options.billingEvent).toUpperCase(),
         optimization_goal: String(options.optimizationGoal).toUpperCase(),
         status: String(options.status || 'PAUSED').toUpperCase(),
         targeting
       };
 
+      if (bidding) Object.assign(payload, bidding);
       if (promotedObject) payload.promoted_object = promotedObject;
       if (options.dailyBudget) payload.daily_budget = String(options.dailyBudget);
       if (options.lifetimeBudget) payload.lifetime_budget = String(options.lifetimeBudget);
@@ -608,7 +629,7 @@ function registerMarketingCommands(program) {
 
       const spinner = ora('Creating ad set...').start();
       try {
-        const result = await client.post(`/${act}/adsets`, payload, {}, { verbose: Boolean(options.verbose), maxRetries: 5 });
+        const result = await createAdSet(client, act, payload, { verbose: Boolean(options.verbose), maxRetries: 5 });
         spinner.stop();
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));
@@ -632,8 +653,12 @@ function registerMarketingCommands(program) {
     .option('--page-id <id>', 'Page ID (for simple link creative)')
     .option('--instagram-actor-id <id>', 'Instagram actor id (optional)')
     .option('--link <url>', 'Link URL (for simple link creative)')
-    .option('--message <text>', 'Message (for simple link creative)', '')
+    .option('--body-text <text>', 'Primary text/copy (alias of --message)', '')
+    .option('--headline <text>', 'Headline (link_data.name)', '')
+    .option('--message <text>', 'Message (legacy alias of --body-text)', '')
     .option('--image-hash <hash>', 'Image hash (from upload-image)', '')
+    .option('--image-url <url>', 'Image URL to upload (creates image_hash automatically)', '')
+    .option('--video-url <url>', 'Video URL to upload (creates video_id automatically)', '')
     .option('--call-to-action <type>', 'CTA type (e.g. SHOP_NOW, LEARN_MORE)', '')
     .option('--cta-link <url>', 'CTA link override (defaults to --link)', '')
     .option('--json', 'Output as JSON')
@@ -655,24 +680,73 @@ function registerMarketingCommands(program) {
       }
 
       if (!objectStorySpec) {
-        // Build a minimal link creative.
+        // Build a minimal link/video creative.
         if (!options.pageId || !options.link) {
           console.error(chalk.red('X Provide either --object-story-spec (json/file) OR (--page-id and --link).'));
           process.exit(1);
         }
-        const linkData = { link: options.link };
-        if (options.message) linkData.message = options.message;
-        if (options.imageHash) linkData.image_hash = options.imageHash;
-        if (options.callToAction) {
-          linkData.call_to_action = {
-            type: String(options.callToAction).toUpperCase(),
-            value: { link: options.ctaLink || options.link }
+        const bodyText = options.bodyText || options.message || '';
+        const headline = options.headline || '';
+
+        if (options.imageUrl && options.videoUrl) {
+          console.error(chalk.red('X Provide only one: --image-url or --video-url'));
+          process.exit(1);
+        }
+
+        let imageHash = options.imageHash || '';
+        let videoId = '';
+        if (options.dryRun) {
+          if (options.imageUrl && !imageHash) imageHash = '<IMAGE_HASH_FROM_UPLOAD>';
+          if (options.videoUrl) videoId = '<VIDEO_ID_FROM_UPLOAD>';
+        } else {
+          try {
+            if (options.imageUrl) {
+              const up = await uploadAdImageByUrl(client, act, options.imageUrl, { verbose: Boolean(options.verbose), maxRetries: 5 });
+              imageHash = up.image_hash;
+            }
+            if (options.videoUrl) {
+              const up = await uploadAdVideoByUrl(client, act, options.videoUrl, options.name, { verbose: Boolean(options.verbose), maxRetries: 5 });
+              videoId = up.video_id;
+            }
+          } catch (e) {
+            console.error(chalk.red(`X Upload failed: ${e.message}`));
+            process.exit(1);
+          }
+        }
+
+        const ctaType = options.callToAction ? String(options.callToAction).toUpperCase() : '';
+        const ctaLink = options.ctaLink || options.link;
+
+        if (videoId) {
+          const videoData = { video_id: videoId };
+          if (bodyText) videoData.message = bodyText;
+          if (headline) videoData.title = headline;
+          if (ctaType) {
+            videoData.call_to_action = { type: ctaType, value: { link: ctaLink } };
+          }
+          objectStorySpec = {
+            page_id: options.pageId,
+            video_data: videoData
+          };
+        } else {
+          const linkData = { link: options.link };
+          if (bodyText) linkData.message = bodyText;
+          if (headline) linkData.name = headline;
+          if (imageHash) linkData.image_hash = imageHash;
+          if (ctaType) {
+            linkData.call_to_action = {
+              type: ctaType,
+              value: { link: ctaLink }
+            };
+          }
+          objectStorySpec = {
+            page_id: options.pageId,
+            link_data: linkData
           };
         }
-        objectStorySpec = {
-          page_id: options.pageId,
-          link_data: linkData
-        };
+        if (options.callToAction) {
+          // already handled above
+        }
         if (options.instagramActorId) objectStorySpec.instagram_actor_id = options.instagramActorId;
       }
 
@@ -696,7 +770,7 @@ function registerMarketingCommands(program) {
 
       const spinner = ora('Creating creative...').start();
       try {
-        const result = await client.post(`/${act}/adcreatives`, payload, {}, { verbose: Boolean(options.verbose), maxRetries: 5 });
+        const result = await createCreative(client, act, payload, { verbose: Boolean(options.verbose), maxRetries: 5 });
         spinner.stop();
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));
@@ -712,25 +786,31 @@ function registerMarketingCommands(program) {
     });
 
   marketing
-    .command('create-ad [adAccountId]')
+    .command('create-ad <adsetId>')
     .description('Create an ad (high risk: can affect spend once activated)')
     .requiredOption('--name <name>', 'Ad name')
-    .requiredOption('--adset-id <id>', 'Ad set id')
     .requiredOption('--creative-id <id>', 'Creative id')
     .option('--status <status>', 'Status (ACTIVE or PAUSED)', 'PAUSED')
     .option('--json', 'Output as JSON')
     .option('--dry-run', 'Print payload without calling the API')
     .option('--verbose', 'Verbose request logging (no secrets)')
     .option('--yes', 'Skip confirmation prompt')
-    .action(async (adAccountId, options) => {
+    .action(async (adsetId, options) => {
       warnIfOldApiVersion();
       const token = ensureMarketingToken();
-      const act = requireAct(adAccountId);
       const client = new MetaAPIClient(token, 'facebook');
+
+      let act = '';
+      try {
+        act = await resolveActForAdSet(client, adsetId, { verbose: Boolean(options.verbose), maxRetries: 5 });
+      } catch (e) {
+        console.error(chalk.red(`X Failed to resolve ad account for ad set ${adsetId}: ${e.message}`));
+        process.exit(1);
+      }
 
       const payload = {
         name: options.name,
-        adset_id: options.adsetId,
+        adset_id: adsetId,
         creative: { creative_id: options.creativeId },
         status: String(options.status || 'PAUSED').toUpperCase()
       };
@@ -750,7 +830,7 @@ function registerMarketingCommands(program) {
 
       const spinner = ora('Creating ad...').start();
       try {
-        const result = await client.post(`/${act}/ads`, payload, {}, { verbose: Boolean(options.verbose), maxRetries: 5 });
+        const result = await createAd(client, act, payload, { verbose: Boolean(options.verbose), maxRetries: 5 });
         spinner.stop();
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));

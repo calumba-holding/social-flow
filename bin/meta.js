@@ -40,6 +40,7 @@ if (shouldShowBanner && !process.argv.includes('--no-banner')) {
 program
   .name('meta')
   .description(chalk.gray('A CLI for Meta\'s APIs. For devs tired of token gymnastics.'))
+  .option('--no-banner', 'Disable the startup banner')
   .version(packageJson.version);
 
 // Register command groups

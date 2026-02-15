@@ -15,3 +15,11 @@
 
 - Marketing: `set-status`, `pause`, `resume` for campaigns/ad sets/ads.
 - Marketing: `set-budget` for campaigns/ad sets.
+
+## 0.2.3
+
+- Marketing: updated create flows to support object-id-based ops:
+  - `create-adset <campaignId>` (auto-resolves ad account)
+  - `create-ad <adsetId>` (auto-resolves ad account)
+- Marketing: `create-creative` supports `--image-url` and `--video-url` (auto-upload) plus `--body-text/--headline`.
+- Marketing: `insights --export ... --append` for CSV/JSON.
