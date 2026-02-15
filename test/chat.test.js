@@ -91,6 +91,37 @@ module.exports = [
     }
   },
   {
+    name: 'chat agent supports developer auth status intent',
+    fn: async () => {
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook' },
+        options: {}
+      });
+      const res = await agent.process('check auth status for this profile');
+      assert.equal(res.actions.length, 1);
+      assert.equal(res.actions[0].tool, 'auth.status');
+      assert.equal(res.needsInput, true);
+      assert.equal(ctx.hasPendingActions(), true);
+    }
+  },
+  {
+    name: 'chat agent asks for token when debug token is missing',
+    fn: async () => {
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook' },
+        options: {}
+      });
+      const res = await agent.process('debug token');
+      assert.equal(res.actions.length, 0);
+      assert.equal(res.needsInput, true);
+      assert.equal(res.message.toLowerCase().includes('paste the token'), true);
+    }
+  },
+  {
     name: 'chat agent gives proactive scheduling suggestion from context facts',
     fn: () => {
       const ctx = new ConversationContext();

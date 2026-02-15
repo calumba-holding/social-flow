@@ -81,6 +81,7 @@ This includes API version, default IDs, and tokens. The CLI never prints full to
 - `doctor`: quick diagnostics (sanitized config + setup hints)
 - `agent`: safe planning + execution with scoped memory
 - `chat`: conversational multi-turn AI assistant with persistent sessions
+- `gateway`: localhost web UI + API gateway for chat/agent workflows
 - `accounts`: manage multiple profiles (multi-client)
 - `batch`: run tool-based jobs from JSON/CSV
 
@@ -333,6 +334,34 @@ meta chat sessions
 - `exit`: save and quit
 
 See `docs/CHAT_AGENT.md` for architecture, flow, and safety details.
+
+## Social API Gateway UI (`meta gateway`)
+
+Run a local web app with a polished chat interface and backing API gateway:
+
+```bash
+meta gateway --open
+```
+
+Options:
+
+- `--host <host>` (default `127.0.0.1`)
+- `--port <port>` (default `1310`)
+- `--open` (launch browser)
+- `--debug` (chat/parser debug logs)
+
+Gateway endpoints:
+
+- `GET /api/health`
+- `GET /api/sessions`
+- `GET /api/config`
+- `POST /api/chat/start`
+- `POST /api/chat/message`
+
+UI assets are served from `web/studio/`.
+
+The gateway covers both marketing flows and developer diagnostics (auth status, token debug, webhook subscriptions).
+It includes dedicated tabs for `Data Console`, `Config`, `Help`, and `Settings`.
 
 ## Disclaimer
 

@@ -1,0 +1,40 @@
+const chalk = require('chalk');
+const { createGatewayServer } = require('../lib/gateway/server');
+const { openUrl } = require('../lib/open-url');
+
+function registerGatewayCommands(program) {
+  program
+    .command('gateway')
+    .description('Run localhost UI + API gateway for conversational social API operations')
+    .option('--host <host>', 'Host address', '127.0.0.1')
+    .option('--port <port>', 'Port number', '1310')
+    .option('--open', 'Open the browser automatically', false)
+    .option('--debug', 'Enable debug mode for gateway chat processing', false)
+    .action(async (opts) => {
+      const server = createGatewayServer({
+        host: opts.host,
+        port: parseInt(opts.port, 10),
+        debug: Boolean(opts.debug)
+      });
+      await server.start();
+
+      const url = server.url();
+      console.log(chalk.green('\nSocial API Gateway is running.'));
+      console.log(chalk.cyan(`UI: ${url}`));
+      console.log(chalk.gray('Press Ctrl+C to stop.\n'));
+
+      if (opts.open) {
+        await openUrl(url);
+      }
+
+      const shutdown = async () => {
+        await server.stop();
+        process.exit(0);
+      };
+
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
+    });
+}
+
+module.exports = registerGatewayCommands;

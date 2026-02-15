@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Social API Gateway Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="background-layer"></div>
+  <main class="app-shell">
+    <aside class="left-rail">
+      <div class="brand">
+        <div class="logo-ring"></div>
+        <div>
+          <h1>SOCIAL API GATEWAY</h1>
+          <p>Localhost Studio</p>
+        </div>
+      </div>
+      <section class="panel kpi-panel">
+        <article class="kpi-item">
+          <p>Messages</p>
+          <h3 id="kpiMessages">0</h3>
+        </article>
+        <article class="kpi-item">
+          <p>Pending</p>
+          <h3 id="kpiPending">0</h3>
+        </article>
+        <article class="kpi-item">
+          <p>Executed</p>
+          <h3 id="kpiExecuted">0</h3>
+        </article>
+      </section>
+      <section class="panel">
+        <h2>Sessions</h2>
+        <button id="newSessionBtn" class="ghost-btn">New Session</button>
+        <ul id="sessionsList" class="sessions-list"></ul>
+      </section>
+      <section class="panel">
+        <h2>Quick Prompts</h2>
+        <div class="chips">
+          <button class="chip" data-prompt="I need to launch our new product tomorrow on Facebook and Instagram">Launch Plan</button>
+          <button class="chip" data-prompt="Check my ad performance for last 7 days">Ad Analytics</button>
+          <button class="chip" data-prompt="Send WhatsApp message 'Order confirmed' to +15551234567">WhatsApp Send</button>
+          <button class="chip" data-prompt="List my active campaigns for account act_123456789">Campaign Scan</button>
+          <button class="chip" data-prompt="Check auth status for this profile">Auth Status</button>
+          <button class="chip" data-prompt="List webhook subscriptions for this app">Webhook Subscriptions</button>
+        </div>
+      </section>
+      <section class="panel tiny">
+        <h2>Gateway</h2>
+        <p id="healthStatus">Connecting...</p>
+      </section>
+    </aside>
+
+    <section class="chat-stage">
+      <header class="top-banner">
+        <div>
+          <p class="tag">Conversational Agent</p>
+          <h2>Talk naturally. Execute safely.</h2>
+        </div>
+        <div class="session-pill">
+          Session: <span id="sessionIdText">-</span>
+        </div>
+      </header>
+
+      <nav class="view-tabs">
+        <button class="view-tab active" data-view="chat">Chat</button>
+        <button class="view-tab" data-view="data">Data Console</button>
+        <button class="view-tab" data-view="config">Config</button>
+        <button class="view-tab" data-view="help">Help</button>
+        <button class="view-tab" data-view="settings">Settings</button>
+      </nav>
+
+      <section id="view-chat" class="view-panel active">
+        <section id="messageList" class="message-list"></section>
+
+        <footer class="composer">
+          <textarea id="messageInput" rows="2" placeholder="Type a message... e.g. 'I need to promote my new product tomorrow'"></textarea>
+          <div class="composer-actions">
+            <button id="sendBtn" class="send-btn">Send</button>
+          </div>
+        </footer>
+      </section>
+
+      <section id="view-data" class="view-panel">
+        <div class="data-grid">
+          <article class="data-card">
+            <h3>Recent History</h3>
+            <div id="dataHistory" class="table-wrap"></div>
+          </article>
+          <article class="data-card">
+            <h3>Pending Actions</h3>
+            <div id="dataPending" class="table-wrap"></div>
+          </article>
+          <article class="data-card">
+            <h3>Executed Actions</h3>
+            <div id="dataExecuted" class="table-wrap"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-config" class="view-panel">
+        <div class="config-head">
+          <h3>Runtime Config</h3>
+          <button id="refreshConfigBtn" class="ghost-btn small">Refresh</button>
+        </div>
+        <pre id="configDump" class="config-dump">Loading...</pre>
+      </section>
+
+      <section id="view-help" class="view-panel">
+        <div class="help-grid">
+          <article class="data-card">
+            <h3>Developer</h3>
+            <p>check auth status for this profile</p>
+            <p>list webhook subscriptions for this app</p>
+            <p>debug token &lt;token&gt;</p>
+          </article>
+          <article class="data-card">
+            <h3>Marketing</h3>
+            <p>check my ad performance for last 7 days</p>
+            <p>list my active campaigns</p>
+            <p>create campaign 'Summer Sale' ...</p>
+          </article>
+          <article class="data-card">
+            <h3>Conversation</h3>
+            <p>Use <strong>yes</strong> to run pending actions.</p>
+            <p>Use <strong>no</strong> to cancel and adjust.</p>
+            <p>Type naturally; the agent will ask follow-ups.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view-panel">
+        <div class="settings-list">
+          <label class="setting-item">
+            <input type="checkbox" id="settingEnterSend" checked />
+            <span>Press Enter to send</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="settingAutoScroll" checked />
+            <span>Auto scroll chat</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="settingCompactMode" />
+            <span>Extra compact mode</span>
+          </label>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <template id="messageTemplate">
+    <article class="bubble">
+      <div class="bubble-role"></div>
+      <div class="bubble-text"></div>
+      <div class="bubble-meta"></div>
+    </article>
+  </template>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

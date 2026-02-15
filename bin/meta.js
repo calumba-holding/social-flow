@@ -98,6 +98,7 @@ const accountsCommands = require('../commands/accounts');
 const batchCommands = require('../commands/batch');
 const aiCommands = require('../commands/ai');
 const chatCommands = require('../commands/chat');
+const gatewayCommands = require('../commands/gateway');
 
 // Register command groups
 authCommands(program);
@@ -115,6 +116,7 @@ accountsCommands(program);
 batchCommands(program);
 aiCommands(program);
 chatCommands(program);
+gatewayCommands(program);
 
 // Custom help
 program.on('--help', () => {
@@ -137,6 +139,7 @@ program.on('--help', () => {
   console.log('  $ meta batch run jobs.json     ' + chalk.gray('# Run a batch of tool jobs'));
   console.log('  $ meta ai "show my Facebook pages"  ' + chalk.gray('# Natural-language Meta command'));
   console.log('  $ meta chat                    ' + chalk.gray('# Conversational multi-turn AI assistant'));
+  console.log('  $ meta gateway --open          ' + chalk.gray('# Social API Gateway web UI + API gateway'));
   console.log('');
   console.log(chalk.cyan('Documentation: https://github.com/vishalgojha/meta-cli'));
 });
