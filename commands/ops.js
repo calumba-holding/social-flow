@@ -617,7 +617,7 @@ function registerOpsCommands(program) {
     .option('--workspace <name>', 'Workspace/profile name')
     .option('--id <id>', 'Existing source id to update')
     .requiredOption('--name <name>', 'Source display name')
-    .requiredOption('--connector <name>', 'facebook_ads|instagram_insights|whatsapp_events|marketing_campaigns|csv_upload|webhook|custom')
+    .requiredOption('--connector <name>', 'facebook_ads|instagram_insights|whatsapp_events|marketing_campaigns|slack_channels|csv_upload|webhook|custom')
     .option('--sync-mode <mode>', 'manual|scheduled', 'manual')
     .option('--enabled <bool>', 'true|false', 'true')
     .option('--json', 'Output JSON')

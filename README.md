@@ -308,6 +308,8 @@ Onyx-style connector visibility is available in both CLI and localhost Ops Cente
 ```bash
 social ops sources list
 social ops sources upsert --name "Campaign Source" --connector csv_upload --sync-mode manual
+social ops integrations set --workspace clientA --slack-webhook https://hooks.slack.com/services/...
+social ops sources upsert --workspace clientA --name "Slack Routing" --connector slack_channels --sync-mode scheduled
 social ops sources sync
 ```
 

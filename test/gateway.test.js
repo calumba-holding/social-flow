@@ -264,6 +264,36 @@ module.exports = [
         assert.equal(sourceSync.data.ok, true);
         assert.equal(Array.isArray(sourceSync.data.result), true);
         assert.equal(sourceSync.data.result.length > 0, true);
+        assert.equal(sourceSync.data.result[0].source.status, 'ready');
+
+        const slackSourceUpsert = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/sources/upsert',
+          body: {
+            workspace: 'default',
+            name: 'Slack Routing',
+            connector: 'slack_channels',
+            syncMode: 'manual',
+            enabled: true
+          }
+        });
+        assert.equal(slackSourceUpsert.status, 200);
+        assert.equal(slackSourceUpsert.data.ok, true);
+        assert.equal(slackSourceUpsert.data.source.connector, 'slack_channels');
+
+        const slackSourceSync = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/sources/sync',
+          body: { workspace: 'default', id: slackSourceUpsert.data.source.id }
+        });
+        assert.equal(slackSourceSync.status, 200);
+        assert.equal(slackSourceSync.data.ok, true);
+        assert.equal(Array.isArray(slackSourceSync.data.result), true);
+        assert.equal(slackSourceSync.data.result.length, 1);
+        assert.equal(slackSourceSync.data.result[0].source.status, 'error');
+        assert.equal(String(slackSourceSync.data.result[0].source.lastError || '').includes('slackWebhook'), true);
 
         const run = await requestJson({
           port: server.port,

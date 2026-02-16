@@ -213,5 +213,47 @@ module.exports = [
       assert.equal(after.status, 'ready');
       assert.equal(after.itemCount > 0, true);
     })
+  },
+  {
+    name: 'ops slack connector sync requires integration webhook',
+    fn: () => withTempHome(() => {
+      const { ConfigManager } = configSingleton;
+      const cfg = new ConfigManager();
+      const wsName = `clientSlack_${Date.now()}`;
+      cfg.createProfile(wsName);
+
+      const ws = storage.ensureWorkspace(wsName);
+      const source = storage.upsertSource(ws, {
+        name: 'Slack Routing',
+        connector: 'slack_channels',
+        syncMode: 'scheduled',
+        enabled: true
+      });
+      assert.equal(source.connector, 'slack_channels');
+
+      const failRun = workflows.syncSources({
+        workspace: ws,
+        config: cfg
+      });
+      const failedSlack = failRun.find((x) => x.id === source.id);
+      assert.equal(Boolean(failedSlack), true);
+      assert.equal(failedSlack.status, 'ok');
+      assert.equal(failedSlack.source.status, 'error');
+      assert.equal(String(failedSlack.source.lastError || '').includes('slackWebhook'), true);
+
+      storage.setIntegrations(ws, {
+        slackWebhook: 'https://hooks.slack.com/services/T000/B000/XXX'
+      });
+
+      const passRun = workflows.syncSources({
+        workspace: ws,
+        config: cfg
+      });
+      const passedSlack = passRun.find((x) => x.id === source.id);
+      assert.equal(Boolean(passedSlack), true);
+      assert.equal(passedSlack.status, 'ok');
+      assert.equal(passedSlack.source.status, 'ready');
+      assert.equal(passedSlack.source.itemCount > 0, true);
+    })
   }
 ];
