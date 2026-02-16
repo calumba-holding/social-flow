@@ -494,6 +494,15 @@ social hub inspect connector.slack.alerts@1.0.0
 social hub install connector.slack.alerts
 social hub update
 social hub list
+
+# sync catalog from file/URL and publish signed packages
+social hub sync --source ./hub-catalog.json
+social hub publish ./package-manifest.json --private-key ./publisher-private.pem
+
+# enforce trust policy + publisher keys
+social hub trust set --mode enforce --require-signed true
+social hub trust allow acme-labs
+social hub trust import-key acme-labs --file ./acme-public.pem
 ```
 
 ## Disclaimer

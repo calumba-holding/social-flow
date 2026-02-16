@@ -146,6 +146,7 @@ program.on('--help', () => {
   console.log('  $ social gateway --open          ' + chalk.gray('# Social API Gateway web UI + API gateway'));
   console.log('  $ social ops morning-run --all-workspaces --spend 320  ' + chalk.gray('# Morning agency ops checks + approvals'));
   console.log('  $ social hub search ops          ' + chalk.gray('# Search hub packages (connectors/playbooks/skills)'));
+  console.log('  $ social hub trust show          ' + chalk.gray('# Inspect package trust policy and keys'));
   console.log('');
   console.log(chalk.cyan('Documentation: https://github.com/vishalgojha/social-CLI'));
 });
