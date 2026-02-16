@@ -170,5 +170,83 @@ module.exports = [
         if (oldMeta) process.env.META_AI_KEY = oldMeta;
       }
     }
+  },
+  {
+    name: 'gateway ops endpoints support summary, run, lists, and resolution',
+    fn: async () => {
+      const oldHome = process.env.META_CLI_HOME;
+      const oldSocialHome = process.env.SOCIAL_CLI_HOME;
+      const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-gw-test-'));
+      process.env.META_CLI_HOME = tempHome;
+      process.env.SOCIAL_CLI_HOME = tempHome;
+
+      const server = createGatewayServer({ host: '127.0.0.1', port: 0 });
+      try {
+        await server.start();
+
+        const summary1 = await requestJson({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/ops/summary?workspace=default'
+        });
+        assert.equal(summary1.status, 200);
+        assert.equal(summary1.data.ok, true);
+        assert.equal(typeof summary1.data.summary.alertsOpen, 'number');
+
+        const run = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/morning-run',
+          body: { workspace: 'default', spend: 1000, force: true }
+        });
+        assert.equal(run.status, 200);
+        assert.equal(run.data.ok, true);
+        assert.equal(Boolean(run.data.snapshot), true);
+
+        const alerts = await requestJson({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/ops/alerts?workspace=default&open=1'
+        });
+        assert.equal(alerts.status, 200);
+        assert.equal(alerts.data.ok, true);
+        assert.equal(Array.isArray(alerts.data.alerts), true);
+        assert.equal(alerts.data.alerts.length > 0, true);
+
+        const approvals = await requestJson({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/ops/approvals?workspace=default&open=1'
+        });
+        assert.equal(approvals.status, 200);
+        assert.equal(approvals.data.ok, true);
+        assert.equal(Array.isArray(approvals.data.approvals), true);
+        assert.equal(approvals.data.approvals.length > 0, true);
+
+        const ack = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/alerts/ack',
+          body: { workspace: 'default', id: alerts.data.alerts[0].id }
+        });
+        assert.equal(ack.status, 200);
+        assert.equal(ack.data.ok, true);
+        assert.equal(ack.data.alert.status, 'acked');
+
+        const resolve = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/approvals/resolve',
+          body: { workspace: 'default', id: approvals.data.approvals[0].id, decision: 'approve' }
+        });
+        assert.equal(resolve.status, 200);
+        assert.equal(resolve.data.ok, true);
+        assert.equal(resolve.data.approval.status, 'approved');
+      } finally {
+        await server.stop();
+        process.env.META_CLI_HOME = oldHome;
+        process.env.SOCIAL_CLI_HOME = oldSocialHome;
+      }
+    }
   }
 ];

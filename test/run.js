@@ -8,7 +8,8 @@ async function run() {
     './batch.test.js',
     './ai.test.js',
     './chat.test.js',
-    './gateway.test.js'
+    './gateway.test.js',
+    './ops.test.js'
   ];
 
   const tests = [];

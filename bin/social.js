@@ -99,6 +99,7 @@ const batchCommands = require('../commands/batch');
 const aiCommands = require('../commands/ai');
 const chatCommands = require('../commands/chat');
 const gatewayCommands = require('../commands/gateway');
+const opsCommands = require('../commands/ops');
 
 // Register command groups
 authCommands(program);
@@ -117,6 +118,7 @@ batchCommands(program);
 aiCommands(program);
 chatCommands(program);
 gatewayCommands(program);
+opsCommands(program);
 
 // Custom help
 program.on('--help', () => {
@@ -140,6 +142,7 @@ program.on('--help', () => {
   console.log('  $ social ai "show my Facebook pages"  ' + chalk.gray('# Natural-language Meta command'));
   console.log('  $ social chat                    ' + chalk.gray('# Conversational multi-turn AI assistant'));
   console.log('  $ social gateway --open          ' + chalk.gray('# Social API Gateway web UI + API gateway'));
+  console.log('  $ social ops morning-run --all-workspaces --spend 320  ' + chalk.gray('# Morning agency ops checks + approvals'));
   console.log('');
   console.log(chalk.cyan('Documentation: https://github.com/vishalgojha/social-CLI'));
 });

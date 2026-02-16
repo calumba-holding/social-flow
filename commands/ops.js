@@ -1,0 +1,503 @@
+const chalk = require('chalk');
+const config = require('../lib/config');
+const storage = require('../lib/ops/storage');
+const rbac = require('../lib/ops/rbac');
+const workflows = require('../lib/ops/workflows');
+
+function workspaceFrom(options) {
+  return storage.sanitizeWorkspace(options?.workspace || config.getActiveProfile() || 'default');
+}
+
+function parseBool(v, fallback) {
+  if (v === undefined || v === null || v === '') return fallback;
+  const s = String(v).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(s)) return true;
+  if (['0', 'false', 'no', 'off'].includes(s)) return false;
+  return fallback;
+}
+
+function parseNumber(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function printRows(title, rows) {
+  console.log(chalk.bold(`\n${title}`));
+  if (!rows.length) {
+    console.log(chalk.gray('(none)\n'));
+    return;
+  }
+  rows.forEach((r) => console.log(`- ${r}`));
+  console.log('');
+}
+
+function registerOpsCommands(program) {
+  const ops = program.command('ops').description('Agency operations control plane (workflows, alerts, approvals, schedules, roles)');
+
+  ops
+    .command('onboard')
+    .description('Bootstrap ops data for the current workspace and create a daily morning schedule')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--run-at <iso>', 'First run time (ISO)', new Date().toISOString())
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'admin' });
+      storage.ensureWorkspace(ws);
+      const existing = storage.listSchedules(ws).find((s) => s.workflow === 'morning_ops');
+      const schedule = existing || storage.addSchedule(ws, {
+        name: 'Daily Morning Ops',
+        workflow: 'morning_ops',
+        runAt: options.runAt,
+        repeat: 'daily',
+        enabled: true,
+        payload: {}
+      });
+
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, schedule }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Ops workspace ready: ${ws}`));
+      console.log(chalk.gray(`Morning schedule: ${schedule.id} (${schedule.runAt}, repeat=${schedule.repeat})\n`));
+    });
+
+  ops
+    .command('morning-run')
+    .description('Run high-value morning checks (token health, spend guardrails, follow-up queue)')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--all-workspaces', 'Run across all profiles', false)
+    .option('--spend <amount>', 'Current spend snapshot for threshold check', '0')
+    .option('--force', 'Force run even if already executed today', false)
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const spend = parseNumber(options.spend, 0);
+      const workspaces = options.allWorkspaces
+        ? config.listProfiles().map((p) => storage.sanitizeWorkspace(p))
+        : [workspaceFrom(options)];
+      const results = workspaces.map((ws) => workflows.runMorningOps({
+        workspace: ws,
+        config,
+        spend,
+        force: Boolean(options.force)
+      }));
+
+      if (options.json) {
+        console.log(JSON.stringify({ workspaces, results }, null, 2));
+        return;
+      }
+
+      results.forEach((r) => {
+        if (r.skipped) {
+          console.log(chalk.yellow(`\n${r.workspace}: ${r.reason}`));
+          return;
+        }
+        console.log(chalk.green(`\n${r.workspace}: morning run complete`));
+        console.log(chalk.gray(`  alerts: ${r.stats.alertsCreated} | approvals: ${r.stats.approvalsCreated} | leads due: ${r.stats.leadsDue}`));
+      });
+      console.log('');
+    });
+
+  const leads = ops.command('leads').description('Lead state machine for follow-up automation');
+
+  leads
+    .command('list')
+    .description('List leads')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--status <status>', 'Filter by status')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      let rows = storage.listLeads(ws);
+      if (options.status) rows = rows.filter((x) => x.status === options.status);
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, leads: rows }, null, 2));
+        return;
+      }
+      printRows(`Leads (${ws})`, rows.map((x) => `${x.id} | ${x.status} | ${x.name} | ${x.phone}`));
+    });
+
+  leads
+    .command('add')
+    .description('Add a lead')
+    .requiredOption('--name <name>', 'Lead name')
+    .requiredOption('--phone <phone>', 'Phone in E.164')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--status <status>', 'Status', 'new')
+    .option('--tags <csv>', 'Comma-separated tags', '')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'write' });
+      const tags = String(options.tags || '')
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const lead = storage.addLead(ws, {
+        name: options.name,
+        phone: options.phone,
+        status: options.status,
+        tags
+      });
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, lead }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Lead added: ${lead.id}\n`));
+    });
+
+  leads
+    .command('update <id>')
+    .description('Update lead status/notes')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--status <status>', 'New status')
+    .option('--note <text>', 'Note')
+    .option('--last-contact <iso>', 'Last contact ISO timestamp')
+    .option('--json', 'Output JSON')
+    .action((id, options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'write' });
+      const patch = {};
+      if (options.status) patch.status = options.status;
+      if (options.note) patch.note = options.note;
+      if (options.lastContact) patch.lastContactAt = options.lastContact;
+      const lead = storage.updateLead(ws, id, patch);
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, lead }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Lead updated: ${lead.id}\n`));
+    });
+
+  const alerts = ops.command('alerts').description('Alert inbox (token/spend/workflow issues)');
+
+  alerts
+    .command('list')
+    .description('List alerts')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--open', 'Only open alerts', false)
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      let rows = storage.listAlerts(ws);
+      if (options.open) rows = rows.filter((x) => x.status === 'open');
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, alerts: rows }, null, 2));
+        return;
+      }
+      printRows(`Alerts (${ws})`, rows.map((x) => `${x.id} | ${x.status} | ${x.severity} | ${x.message}`));
+    });
+
+  alerts
+    .command('ack <id>')
+    .description('Acknowledge an alert')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--json', 'Output JSON')
+    .action((id, options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'write' });
+      const alert = storage.ackAlert(ws, id);
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, alert }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Alert acknowledged: ${alert.id}\n`));
+    });
+
+  const approvals = ops.command('approvals').description('Approval queue for high-risk actions');
+
+  approvals
+    .command('list')
+    .description('List approvals')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--open', 'Only pending', false)
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      let rows = storage.listApprovals(ws);
+      if (options.open) rows = rows.filter((x) => x.status === 'pending');
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, approvals: rows }, null, 2));
+        return;
+      }
+      printRows(`Approvals (${ws})`, rows.map((x) => `${x.id} | ${x.status} | ${x.risk} | ${x.title}`));
+    });
+
+  approvals
+    .command('approve <id>')
+    .description('Approve a pending request')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--note <text>', 'Decision note', '')
+    .option('--json', 'Output JSON')
+    .action((id, options) => {
+      const ws = workspaceFrom(options);
+      const out = workflows.resolveApproval({
+        workspace: ws,
+        approvalId: id,
+        decision: 'approve',
+        note: options.note
+      });
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, approval: out }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Approval accepted: ${out.id}\n`));
+    });
+
+  approvals
+    .command('reject <id>')
+    .description('Reject a pending request')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--note <text>', 'Decision note', '')
+    .option('--json', 'Output JSON')
+    .action((id, options) => {
+      const ws = workspaceFrom(options);
+      const out = workflows.resolveApproval({
+        workspace: ws,
+        approvalId: id,
+        decision: 'reject',
+        note: options.note
+      });
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, approval: out }, null, 2));
+        return;
+      }
+      console.log(chalk.yellow(`\nRejected: ${out.id}\n`));
+    });
+
+  const outcomes = ops.command('outcomes').description('Outcome log (money saved/made and operational impact)');
+
+  outcomes
+    .command('list')
+    .description('List recent outcomes')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--limit <n>', 'How many rows', '20')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      const limit = parseNumber(options.limit, 20);
+      const rows = storage.listOutcomes(ws).slice(-limit).reverse();
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, outcomes: rows }, null, 2));
+        return;
+      }
+      printRows(`Outcomes (${ws})`, rows.map((x) => `${x.id} | ${x.kind} | ${x.summary}`));
+    });
+
+  const policy = ops.command('policy').description('Automation and approval policy');
+
+  policy
+    .command('show')
+    .description('Show policy for a workspace')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      const p = storage.getPolicy(ws);
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, policy: p }, null, 2));
+        return;
+      }
+      console.log(chalk.bold(`\nPolicy (${ws})`));
+      Object.entries(p).forEach(([k, v]) => console.log(`- ${k}: ${v}`));
+      console.log('');
+    });
+
+  policy
+    .command('set')
+    .description('Set policy values')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--spend-threshold <n>', 'Spend threshold')
+    .option('--auto-approve-low-risk <bool>', 'true|false')
+    .option('--require-bulk-whatsapp-approval <bool>', 'true|false')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'admin' });
+      const patch = {};
+      if (options.spendThreshold !== undefined) patch.spendThreshold = parseNumber(options.spendThreshold, 200);
+      if (options.autoApproveLowRisk !== undefined) patch.autoApproveLowRisk = parseBool(options.autoApproveLowRisk, false);
+      if (options.requireBulkWhatsappApproval !== undefined) {
+        patch.requireApprovalForBulkWhatsApp = parseBool(options.requireBulkWhatsappApproval, true);
+      }
+      const p = storage.setPolicy(ws, patch);
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, policy: p }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Policy updated for ${ws}\n`));
+    });
+
+  const roles = ops.command('roles').description('Role-based access controls for workspaces');
+
+  roles
+    .command('show')
+    .description('Show role for a user/workspace')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--user <user>', 'User name', rbac.currentUser())
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = options.workspace ? workspaceFrom(options) : '';
+      const role = storage.getRole({ workspace: ws, user: options.user });
+      if (options.json) {
+        console.log(JSON.stringify({ user: options.user, workspace: ws || null, role }, null, 2));
+        return;
+      }
+      console.log(chalk.cyan(`\n${options.user} => ${role}${ws ? ` (${ws})` : ' (global)'}\n`));
+    });
+
+  roles
+    .command('set <user> <role>')
+    .description('Set role (viewer|analyst|operator|owner)')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--json', 'Output JSON')
+    .action((user, role, options) => {
+      const currentWs = options.workspace ? workspaceFrom(options) : config.getActiveProfile();
+      rbac.assertCan({ workspace: currentWs, action: 'admin' });
+      const normalized = rbac.normalizeRole(role);
+      if (!rbac.roleChoices().includes(normalized)) {
+        console.error(chalk.red(`\nX Invalid role. Use one of: ${rbac.roleChoices().join(', ')}\n`));
+        process.exit(1);
+      }
+      const entry = storage.setRole({
+        workspace: options.workspace ? workspaceFrom(options) : '',
+        user,
+        role: normalized
+      });
+      if (options.json) {
+        console.log(JSON.stringify({ user, role: normalized, entry }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Role set: ${user} => ${normalized}${options.workspace ? ` (${workspaceFrom(options)})` : ' (global)'}\n`));
+    });
+
+  const schedule = ops.command('schedule').description('Job scheduler for automated runs');
+
+  schedule
+    .command('list')
+    .description('List schedules')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      const rows = storage.listSchedules(ws);
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, schedules: rows }, null, 2));
+        return;
+      }
+      printRows(`Schedules (${ws})`, rows.map((x) => `${x.id} | ${x.enabled ? 'on' : 'off'} | ${x.workflow} | ${x.runAt} | repeat=${x.repeat}`));
+    });
+
+  schedule
+    .command('add')
+    .description('Add a schedule')
+    .requiredOption('--name <name>', 'Name')
+    .requiredOption('--run-at <iso>', 'Run time (ISO)')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--workflow <workflow>', 'Workflow id', 'morning_ops')
+    .option('--repeat <mode>', 'none|hourly|daily', 'daily')
+    .option('--spend <n>', 'Spend payload for morning ops', '0')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'write' });
+      const item = storage.addSchedule(ws, {
+        name: options.name,
+        workflow: options.workflow,
+        runAt: options.runAt,
+        repeat: options.repeat,
+        payload: { spend: parseNumber(options.spend, 0) }
+      });
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, schedule: item }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Schedule added: ${item.id}\n`));
+    });
+
+  schedule
+    .command('remove <id>')
+    .description('Remove a schedule')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .action((id, options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'write' });
+      storage.removeSchedule(ws, id);
+      console.log(chalk.green(`\nOK Schedule removed: ${id}\n`));
+    });
+
+  schedule
+    .command('run-due')
+    .description('Execute due schedules now')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      const results = workflows.runDueSchedules({ workspace: ws, config });
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, results }, null, 2));
+        return;
+      }
+      printRows(`Run-due results (${ws})`, results.map((r) => `${r.id} | ${r.status} | next=${r.nextRunAt || 'none'}`));
+    });
+
+  const integrations = ops.command('integrations').description('Workspace integration settings (webhooks)');
+
+  integrations
+    .command('show')
+    .description('Show configured integrations')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      const val = storage.getIntegrations(ws);
+      const safe = {
+        ...val,
+        slackWebhook: val.slackWebhook ? '***configured***' : '',
+        outboundWebhook: val.outboundWebhook ? '***configured***' : ''
+      };
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, integrations: safe }, null, 2));
+        return;
+      }
+      console.log(chalk.bold(`\nIntegrations (${ws})`));
+      console.log(`- slackWebhook: ${safe.slackWebhook || '(not set)'}`);
+      console.log(`- outboundWebhook: ${safe.outboundWebhook || '(not set)'}`);
+      console.log('');
+    });
+
+  integrations
+    .command('set')
+    .description('Set integration endpoints')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--slack-webhook <url>', 'Slack incoming webhook URL')
+    .option('--outbound-webhook <url>', 'Generic outbound webhook URL')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'admin' });
+      const patch = {};
+      if (options.slackWebhook !== undefined) patch.slackWebhook = String(options.slackWebhook || '').trim();
+      if (options.outboundWebhook !== undefined) patch.outboundWebhook = String(options.outboundWebhook || '').trim();
+      const val = storage.setIntegrations(ws, patch);
+      const safe = {
+        ...val,
+        slackWebhook: val.slackWebhook ? '***configured***' : '',
+        outboundWebhook: val.outboundWebhook ? '***configured***' : ''
+      };
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, integrations: safe }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Integrations updated for ${ws}\n`));
+    });
+}
+
+module.exports = registerOpsCommands;

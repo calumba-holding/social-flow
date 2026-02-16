@@ -2,6 +2,8 @@ const state = {
   sessionId: '',
   sending: false,
   activeView: 'chat',
+  workspace: 'default',
+  opsSnapshot: null,
   latestPayload: {
     history: [],
     pendingActions: [],
@@ -39,6 +41,20 @@ const els = {
   dataHistory: document.getElementById('dataHistory'),
   dataPending: document.getElementById('dataPending'),
   dataExecuted: document.getElementById('dataExecuted'),
+  opsWorkspaceText: document.getElementById('opsWorkspaceText'),
+  opsRefreshBtn: document.getElementById('opsRefreshBtn'),
+  opsMorningBtn: document.getElementById('opsMorningBtn'),
+  opsRunDueBtn: document.getElementById('opsRunDueBtn'),
+  opsApproveLowBtn: document.getElementById('opsApproveLowBtn'),
+  opsAckTokenBtn: document.getElementById('opsAckTokenBtn'),
+  opsAlertsOpen: document.getElementById('opsAlertsOpen'),
+  opsApprovalsPending: document.getElementById('opsApprovalsPending'),
+  opsLeadsDue: document.getElementById('opsLeadsDue'),
+  opsSchedulesDue: document.getElementById('opsSchedulesDue'),
+  opsAlertsTable: document.getElementById('opsAlertsTable'),
+  opsApprovalsTable: document.getElementById('opsApprovalsTable'),
+  opsLeadsTable: document.getElementById('opsLeadsTable'),
+  opsOutcomesTable: document.getElementById('opsOutcomesTable'),
   configDump: document.getElementById('configDump'),
   refreshConfigBtn: document.getElementById('refreshConfigBtn'),
   settingEnterSend: document.getElementById('settingEnterSend'),
@@ -64,6 +80,13 @@ function escapeHtml(v) {
 function short(v, n = 96) {
   const s = String(v ?? '');
   return s.length > n ? `${s.slice(0, n)}...` : s;
+}
+
+function fmtTime(v) {
+  if (!v) return '';
+  const ts = Date.parse(v);
+  if (!Number.isFinite(ts)) return String(v);
+  return new Date(ts).toLocaleString();
 }
 
 function resolvedTheme(mode) {
@@ -225,9 +248,183 @@ async function refreshConfig() {
   try {
     const res = await api('/api/config');
     els.configDump.textContent = JSON.stringify(res, null, 2);
+    state.workspace = String(res.config?.activeProfile || 'default');
+    if (els.opsWorkspaceText) {
+      els.opsWorkspaceText.textContent = state.workspace;
+    }
   } catch (error) {
     els.configDump.textContent = `Failed to load config: ${error.message}`;
   }
+}
+
+function opsActionButtons(kind, row) {
+  if (kind === 'alert' && row.status === 'open') {
+    return `<button class="ghost-btn small js-ops-ack" data-id="${escapeHtml(row.id)}">Ack</button>`;
+  }
+  if (kind === 'approval' && row.status === 'pending') {
+    return [
+      `<button class="ghost-btn small js-ops-approve" data-id="${escapeHtml(row.id)}">Approve</button>`,
+      `<button class="ghost-btn small js-ops-reject" data-id="${escapeHtml(row.id)}">Reject</button>`
+    ].join(' ');
+  }
+  return `<span class="mono">${escapeHtml(row.status || '')}</span>`;
+}
+
+function renderOpsAlerts(alerts) {
+  if (!els.opsAlertsTable) return;
+  if (!Array.isArray(alerts) || !alerts.length) {
+    els.opsAlertsTable.innerHTML = '<p class="empty-note">No open alerts.</p>';
+    return;
+  }
+  const rows = alerts.map((a) => `
+    <tr>
+      <td>${escapeHtml(a.severity || '')}</td>
+      <td>${escapeHtml(short(a.message || '', 140))}</td>
+      <td>${escapeHtml(fmtTime(a.createdAt))}</td>
+      <td>${opsActionButtons('alert', a)}</td>
+    </tr>
+  `).join('');
+  els.opsAlertsTable.innerHTML = `
+    <table class="mini-table">
+      <thead><tr><th>Severity</th><th>Message</th><th>Created</th><th>Action</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderOpsApprovals(approvals) {
+  if (!els.opsApprovalsTable) return;
+  if (!Array.isArray(approvals) || !approvals.length) {
+    els.opsApprovalsTable.innerHTML = '<p class="empty-note">No pending approvals.</p>';
+    return;
+  }
+  const rows = approvals.map((a) => `
+    <tr>
+      <td>${escapeHtml(a.risk || '')}</td>
+      <td>${escapeHtml(short(a.title || '', 120))}</td>
+      <td>${escapeHtml(short(a.reason || '', 140))}</td>
+      <td>${opsActionButtons('approval', a)}</td>
+    </tr>
+  `).join('');
+  els.opsApprovalsTable.innerHTML = `
+    <table class="mini-table">
+      <thead><tr><th>Risk</th><th>Title</th><th>Reason</th><th>Decision</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderOpsSnapshot(snapshot) {
+  state.opsSnapshot = snapshot || state.opsSnapshot;
+  const s = state.opsSnapshot?.summary || {};
+  if (els.opsWorkspaceText) els.opsWorkspaceText.textContent = state.opsSnapshot?.workspace || state.workspace || 'default';
+  if (els.opsAlertsOpen) els.opsAlertsOpen.textContent = String(s.alertsOpen || 0);
+  if (els.opsApprovalsPending) els.opsApprovalsPending.textContent = String(s.approvalsPending || 0);
+  if (els.opsLeadsDue) els.opsLeadsDue.textContent = String(s.leadsDue || 0);
+  if (els.opsSchedulesDue) els.opsSchedulesDue.textContent = String(s.schedulesDue || 0);
+
+  renderOpsAlerts(state.opsSnapshot?.alerts || []);
+  renderOpsApprovals(state.opsSnapshot?.approvals || []);
+
+  const leadsRows = (state.opsSnapshot?.leadsDue || []).map((x) => ({
+    status: x.status || '',
+    name: x.name || '',
+    phone: x.phone || '',
+    updated: fmtTime(x.updatedAt)
+  }));
+  renderTable(els.opsLeadsTable, [
+    { key: 'status', label: 'Status' },
+    { key: 'name', label: 'Name' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'updated', label: 'Updated' }
+  ], leadsRows);
+
+  const outcomeRows = (state.opsSnapshot?.outcomes || []).map((x) => ({
+    kind: x.kind || '',
+    summary: x.summary || '',
+    createdAt: fmtTime(x.createdAt)
+  }));
+  renderTable(els.opsOutcomesTable, [
+    { key: 'kind', label: 'Kind' },
+    { key: 'summary', label: 'Summary' },
+    { key: 'createdAt', label: 'When' }
+  ], outcomeRows);
+}
+
+async function refreshOps() {
+  try {
+    const ws = encodeURIComponent(state.workspace || 'default');
+    const res = await api(`/api/ops/summary?workspace=${ws}`);
+    renderOpsSnapshot(res);
+  } catch (error) {
+    if (els.opsAlertsTable) {
+      els.opsAlertsTable.innerHTML = `<p class="empty-note">Failed to load ops data: ${escapeHtml(error.message)}</p>`;
+    }
+  }
+}
+
+async function runMorningOps() {
+  const res = await api('/api/ops/morning-run', {
+    method: 'POST',
+    body: { workspace: state.workspace }
+  });
+  renderOpsSnapshot(res.snapshot);
+  const msg = res.result?.skipped
+    ? `Morning ops skipped: ${res.result.reason || 'already ran today'}`
+    : `Morning ops completed for ${res.result?.workspace || state.workspace}`;
+  appendMessage('system', msg);
+}
+
+async function runDueSchedules() {
+  const res = await api('/api/ops/schedule/run-due', {
+    method: 'POST',
+    body: { workspace: state.workspace }
+  });
+  renderOpsSnapshot(res.snapshot);
+  const count = Array.isArray(res.result) ? res.result.length : 0;
+  appendMessage('system', `Ran ${count} due schedules for ${state.workspace}.`);
+}
+
+async function ackAlertById(id) {
+  const res = await api('/api/ops/alerts/ack', {
+    method: 'POST',
+    body: { workspace: state.workspace, id }
+  });
+  renderOpsSnapshot(res.snapshot);
+}
+
+async function resolveApprovalById(id, decision) {
+  const res = await api('/api/ops/approvals/resolve', {
+    method: 'POST',
+    body: { workspace: state.workspace, id, decision }
+  });
+  renderOpsSnapshot(res.snapshot);
+}
+
+async function ackTokenAlerts() {
+  const rows = (state.opsSnapshot?.alerts || []).filter((a) => a.type === 'token_missing' && a.status === 'open');
+  if (!rows.length) {
+    appendMessage('system', 'No open token alerts.');
+    return;
+  }
+  for (let i = 0; i < rows.length; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await ackAlertById(rows[i].id);
+  }
+  appendMessage('system', `Acknowledged ${rows.length} token alerts.`);
+}
+
+async function approveLowRisk() {
+  const rows = (state.opsSnapshot?.approvals || []).filter((a) => a.status === 'pending' && String(a.risk || '').toLowerCase() === 'low');
+  if (!rows.length) {
+    appendMessage('system', 'No low-risk approvals pending.');
+    return;
+  }
+  for (let i = 0; i < rows.length; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await resolveApprovalById(rows[i].id, 'approve');
+  }
+  appendMessage('system', `Approved ${rows.length} low-risk requests.`);
 }
 
 function setActiveView(view) {
@@ -235,6 +432,7 @@ function setActiveView(view) {
   const titles = {
     chat: { tag: 'Chat Agent', title: 'Talk naturally. Execute safely.' },
     data: { tag: 'Data Console', title: 'Inspect live conversation and execution trails.' },
+    ops: { tag: 'Ops Center', title: 'Run workflows, resolve approvals, and clear alerts.' },
     config: { tag: 'Config', title: 'Runtime profile, defaults, and token state.' },
     devtools: { tag: 'Developer Toolkit', title: 'Commands, providers, and integration shortcuts.' },
     help: { tag: 'Help', title: 'Prompt patterns for developer and marketing flows.' },
@@ -251,6 +449,7 @@ function setActiveView(view) {
     panel.classList.toggle('active', panel.id === `view-${view}`);
   });
   if (view === 'data') renderDataConsole(state.latestPayload);
+  if (view === 'ops') refreshOps();
   if (view === 'config') refreshConfig();
 }
 
@@ -432,6 +631,64 @@ function wireEvents() {
     els.refreshConfigBtn.addEventListener('click', refreshConfig);
   }
 
+  if (els.opsRefreshBtn) {
+    els.opsRefreshBtn.addEventListener('click', refreshOps);
+  }
+  if (els.opsMorningBtn) {
+    els.opsMorningBtn.addEventListener('click', async () => {
+      try {
+        await runMorningOps();
+      } catch (error) {
+        appendMessage('system', `Ops error: ${error.message}`);
+      }
+    });
+  }
+  if (els.opsRunDueBtn) {
+    els.opsRunDueBtn.addEventListener('click', async () => {
+      try {
+        await runDueSchedules();
+      } catch (error) {
+        appendMessage('system', `Ops error: ${error.message}`);
+      }
+    });
+  }
+  if (els.opsAckTokenBtn) {
+    els.opsAckTokenBtn.addEventListener('click', async () => {
+      try {
+        await ackTokenAlerts();
+      } catch (error) {
+        appendMessage('system', `Ops error: ${error.message}`);
+      }
+    });
+  }
+  if (els.opsApproveLowBtn) {
+    els.opsApproveLowBtn.addEventListener('click', async () => {
+      try {
+        await approveLowRisk();
+      } catch (error) {
+        appendMessage('system', `Ops error: ${error.message}`);
+      }
+    });
+  }
+
+  document.addEventListener('click', async (evt) => {
+    const btn = evt.target.closest('button');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    if (!id) return;
+    try {
+      if (btn.classList.contains('js-ops-ack')) {
+        await ackAlertById(id);
+      } else if (btn.classList.contains('js-ops-approve')) {
+        await resolveApprovalById(id, 'approve');
+      } else if (btn.classList.contains('js-ops-reject')) {
+        await resolveApprovalById(id, 'reject');
+      }
+    } catch (error) {
+      appendMessage('system', `Ops error: ${error.message}`);
+    }
+  });
+
   if (els.settingEnterSend) {
     els.settingEnterSend.addEventListener('change', () => {
       state.settings.enterToSend = Boolean(els.settingEnterSend.checked);
@@ -490,7 +747,9 @@ async function init() {
   }
   wireEvents();
   await checkHealth();
+  await refreshConfig();
   await startSession('');
+  await refreshOps();
   setActiveView('chat');
 }
 

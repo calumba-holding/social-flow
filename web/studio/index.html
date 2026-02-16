@@ -51,6 +51,7 @@
         <p class="section-label">Main</p>
         <button class="side-nav-item active" data-view="chat">Chat Agent</button>
         <button class="side-nav-item" data-view="data">Data Console</button>
+        <button class="side-nav-item" data-view="ops">Ops Center</button>
         <button class="side-nav-item" data-view="config">Config</button>
         <button class="side-nav-item" data-view="devtools">Developer Toolkit</button>
         <button class="side-nav-item" data-view="help">Help</button>
@@ -116,6 +117,66 @@
             <h3>Executed Actions</h3>
             <div id="dataExecuted" class="table-wrap"></div>
           </article>
+        </div>
+      </section>
+
+      <section id="view-ops" class="view-panel">
+        <div class="ops-wrap">
+          <div class="ops-toolbar">
+            <div class="ops-workspace">Workspace: <span id="opsWorkspaceText">default</span></div>
+            <div class="ops-actions">
+              <button id="opsRefreshBtn" class="ghost-btn small">Refresh</button>
+              <button id="opsMorningBtn" class="ghost-btn small">Run Morning Ops</button>
+              <button id="opsRunDueBtn" class="ghost-btn small">Run Due Schedules</button>
+            </div>
+          </div>
+
+          <div class="ops-kpis">
+            <article class="ops-kpi-card">
+              <p class="ops-kpi-label">Open Alerts</p>
+              <p id="opsAlertsOpen" class="ops-kpi-value">0</p>
+            </article>
+            <article class="ops-kpi-card">
+              <p class="ops-kpi-label">Pending Approvals</p>
+              <p id="opsApprovalsPending" class="ops-kpi-value">0</p>
+            </article>
+            <article class="ops-kpi-card">
+              <p class="ops-kpi-label">Leads Due</p>
+              <p id="opsLeadsDue" class="ops-kpi-value">0</p>
+            </article>
+            <article class="ops-kpi-card">
+              <p class="ops-kpi-label">Schedules Due</p>
+              <p id="opsSchedulesDue" class="ops-kpi-value">0</p>
+            </article>
+          </div>
+
+          <div class="ops-grid">
+            <article class="data-card">
+              <div class="ops-card-head">
+                <h3>Alerts</h3>
+                <button id="opsAckTokenBtn" class="ghost-btn small">Ack Token Alerts</button>
+              </div>
+              <div id="opsAlertsTable" class="table-wrap"></div>
+            </article>
+
+            <article class="data-card">
+              <div class="ops-card-head">
+                <h3>Approvals</h3>
+                <button id="opsApproveLowBtn" class="ghost-btn small">Approve Low Risk</button>
+              </div>
+              <div id="opsApprovalsTable" class="table-wrap"></div>
+            </article>
+
+            <article class="data-card">
+              <h3>Leads Due</h3>
+              <div id="opsLeadsTable" class="table-wrap"></div>
+            </article>
+
+            <article class="data-card">
+              <h3>Recent Outcomes</h3>
+              <div id="opsOutcomesTable" class="table-wrap"></div>
+            </article>
+          </div>
         </div>
       </section>
 

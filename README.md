@@ -107,6 +107,7 @@ This includes API version, default IDs, and tokens. The CLI never prints full to
 - `agent`: safe planning + execution with scoped memory
 - `chat`: conversational multi-turn AI assistant with persistent sessions
 - `gateway`: localhost web UI + API gateway for chat/agent workflows
+- `ops`: morning operations workflow, alerts, approvals, scheduler, roles
 - `accounts`: manage multiple profiles (multi-client)
 - `batch`: run tool-based jobs from JSON/CSV
 
@@ -401,6 +402,46 @@ UI assets are served from `web/studio/`.
 
 The gateway covers both marketing flows and developer diagnostics (auth status, token debug, webhook subscriptions).
 It includes dedicated tabs for `Data Console`, `Config`, `Help`, and `Settings`.
+
+## Ops Control Plane (`social ops`)
+
+`social ops` is an agency-oriented operations surface that adds high-value workflow automation:
+
+- Morning Ops workflow (`token health + spend guardrails + follow-up queue`)
+- Persistent lead state machine (`new -> contacted -> no_reply_3d -> followup_due`)
+- Alerts inbox and approval queue for high-risk actions
+- Scheduler for recurring workflow runs
+- Integration settings for Slack/generic webhook handoff
+- Policy controls (thresholds and approval requirements)
+- Role-based controls per workspace
+- Outcome tracking for operational impact
+
+Quick examples:
+
+```bash
+# bootstrap a workspace with daily morning checks
+social ops onboard --workspace clientA
+
+# run checks now for all profiles
+social ops morning-run --all-workspaces --spend 320
+
+# inspect and resolve risk gates
+social ops alerts list --workspace clientA --open
+social ops approvals list --workspace clientA --open
+social ops approvals approve <APPROVAL_ID> --workspace clientA
+
+# manage lead follow-up state
+social ops leads add --workspace clientA --name "Alice" --phone +15551234567
+social ops leads update <LEAD_ID> --workspace clientA --status no_reply_3d
+
+# schedule automation
+social ops schedule add --workspace clientA --name "Daily Ops" --run-at 2026-02-17T09:00:00Z --repeat daily
+social ops schedule run-due --workspace clientA
+
+# integrations
+social ops integrations set --workspace clientA --slack-webhook https://hooks.slack.com/services/...
+social ops integrations show --workspace clientA
+```
 
 ## Disclaimer
 
