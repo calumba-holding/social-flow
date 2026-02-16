@@ -21,6 +21,14 @@ function parseNumber(v, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+const GUARD_MODES = ['observe', 'approval', 'auto_safe'];
+
+function normalizeGuardMode(mode) {
+  const value = String(mode || '').trim().toLowerCase();
+  if (GUARD_MODES.includes(value)) return value;
+  return '';
+}
+
 function printRows(title, rows) {
   console.log(chalk.bold(`\n${title}`));
   if (!rows.length) {
@@ -331,6 +339,134 @@ function registerOpsCommands(program) {
         return;
       }
       console.log(chalk.green(`\nOK Policy updated for ${ws}\n`));
+    });
+
+  const guard = ops.command('guard').description('Autonomous spend guard policy, mode, and telemetry');
+  const guardPolicy = guard.command('policy').description('Guard policy (thresholds, limits, mode)');
+
+  guardPolicy
+    .command('get')
+    .description('Get guard policy for a workspace')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      const policyValue = storage.getGuardPolicy(ws);
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, guardPolicy: policyValue }, null, 2));
+        return;
+      }
+      console.log(chalk.bold(`\nGuard Policy (${ws})`));
+      console.log(`- enabled: ${policyValue.enabled}`);
+      console.log(`- mode: ${policyValue.mode}`);
+      console.log(`- thresholds.spendSpikePct: ${policyValue.thresholds.spendSpikePct}`);
+      console.log(`- thresholds.cpaSpikePct: ${policyValue.thresholds.cpaSpikePct}`);
+      console.log(`- thresholds.roasDropPct: ${policyValue.thresholds.roasDropPct}`);
+      console.log(`- limits.maxBudgetAdjustmentPct: ${policyValue.limits.maxBudgetAdjustmentPct}`);
+      console.log(`- limits.maxCampaignsPerRun: ${policyValue.limits.maxCampaignsPerRun}`);
+      console.log(`- limits.maxDailyAutoActions: ${policyValue.limits.maxDailyAutoActions}`);
+      console.log(`- limits.requireApprovalForPause: ${policyValue.limits.requireApprovalForPause}`);
+      console.log(`- cooldownMinutes: ${policyValue.cooldownMinutes}`);
+      console.log('');
+    });
+
+  guardPolicy
+    .command('set')
+    .description('Set guard policy values')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--enabled <bool>', 'true|false')
+    .option('--mode <mode>', `Mode (${GUARD_MODES.join('|')})`)
+    .option('--spend-spike-pct <n>', 'Spend spike threshold percent')
+    .option('--cpa-spike-pct <n>', 'CPA spike threshold percent')
+    .option('--roas-drop-pct <n>', 'ROAS drop threshold percent')
+    .option('--max-budget-adjustment-pct <n>', 'Maximum budget adjustment percent')
+    .option('--max-campaigns-per-run <n>', 'Maximum campaigns touched per run')
+    .option('--max-daily-auto-actions <n>', 'Maximum automatic actions per day')
+    .option('--require-approval-for-pause <bool>', 'true|false')
+    .option('--cooldown-minutes <n>', 'Minimum cooldown between actions')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'guard_config' });
+      const patch = {};
+      if (options.enabled !== undefined) patch.enabled = parseBool(options.enabled, true);
+      if (options.mode !== undefined) {
+        const mode = normalizeGuardMode(options.mode);
+        if (!mode) {
+          console.error(chalk.red(`\nX Invalid mode. Use one of: ${GUARD_MODES.join(', ')}\n`));
+          process.exit(1);
+        }
+        patch.mode = mode;
+      }
+      if (options.spendSpikePct !== undefined || options.cpaSpikePct !== undefined || options.roasDropPct !== undefined) {
+        patch.thresholds = {};
+        if (options.spendSpikePct !== undefined) patch.thresholds.spendSpikePct = parseNumber(options.spendSpikePct, 35);
+        if (options.cpaSpikePct !== undefined) patch.thresholds.cpaSpikePct = parseNumber(options.cpaSpikePct, 30);
+        if (options.roasDropPct !== undefined) patch.thresholds.roasDropPct = parseNumber(options.roasDropPct, 20);
+      }
+      if (
+        options.maxBudgetAdjustmentPct !== undefined ||
+        options.maxCampaignsPerRun !== undefined ||
+        options.maxDailyAutoActions !== undefined ||
+        options.requireApprovalForPause !== undefined
+      ) {
+        patch.limits = {};
+        if (options.maxBudgetAdjustmentPct !== undefined) {
+          patch.limits.maxBudgetAdjustmentPct = parseNumber(options.maxBudgetAdjustmentPct, 20);
+        }
+        if (options.maxCampaignsPerRun !== undefined) {
+          patch.limits.maxCampaignsPerRun = parseNumber(options.maxCampaignsPerRun, 5);
+        }
+        if (options.maxDailyAutoActions !== undefined) {
+          patch.limits.maxDailyAutoActions = parseNumber(options.maxDailyAutoActions, 10);
+        }
+        if (options.requireApprovalForPause !== undefined) {
+          patch.limits.requireApprovalForPause = parseBool(options.requireApprovalForPause, true);
+        }
+      }
+      if (options.cooldownMinutes !== undefined) patch.cooldownMinutes = parseNumber(options.cooldownMinutes, 60);
+
+      const policyValue = storage.setGuardPolicy(ws, patch);
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, guardPolicy: policyValue }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Guard policy updated for ${ws}\n`));
+    });
+
+  guard
+    .command('mode [mode]')
+    .description(`Show or set guard mode (${GUARD_MODES.join('|')})`)
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--set <mode>', `Mode (${GUARD_MODES.join('|')})`)
+    .option('--json', 'Output JSON')
+    .action((modeArg, options) => {
+      const ws = workspaceFrom(options);
+      const requested = options.set !== undefined ? options.set : modeArg;
+      if (requested === undefined) {
+        rbac.assertCan({ workspace: ws, action: 'read' });
+        const policyValue = storage.getGuardPolicy(ws);
+        if (options.json) {
+          console.log(JSON.stringify({ workspace: ws, mode: policyValue.mode }, null, 2));
+          return;
+        }
+        console.log(chalk.cyan(`\nGuard mode (${ws}): ${policyValue.mode}\n`));
+        return;
+      }
+
+      rbac.assertCan({ workspace: ws, action: 'guard_config' });
+      const mode = normalizeGuardMode(requested);
+      if (!mode) {
+        console.error(chalk.red(`\nX Invalid mode. Use one of: ${GUARD_MODES.join(', ')}\n`));
+        process.exit(1);
+      }
+      const policyValue = storage.setGuardPolicy(ws, { mode });
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, mode: policyValue.mode }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Guard mode set: ${ws} => ${policyValue.mode}\n`));
     });
 
   const roles = ops.command('roles').description('Role-based access controls for workspaces');

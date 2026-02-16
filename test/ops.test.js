@@ -124,5 +124,66 @@ module.exports = [
       const read = storage.getIntegrations(ws);
       assert.equal(read.slackWebhook.includes('https://hooks.slack.com/'), true);
     })
+  },
+  {
+    name: 'ops guard policy supports nested updates and mode control',
+    fn: () => withTempHome(() => {
+      const ws = storage.ensureWorkspace('clientA');
+      const current = storage.getGuardPolicy(ws);
+      assert.equal(current.mode, 'approval');
+      assert.equal(current.thresholds.cpaSpikePct, 30);
+
+      const next = storage.setGuardPolicy(ws, {
+        mode: 'auto_safe',
+        thresholds: { spendSpikePct: 55 },
+        limits: { maxCampaignsPerRun: 3 }
+      });
+
+      assert.equal(next.mode, 'auto_safe');
+      assert.equal(next.thresholds.spendSpikePct, 55);
+      assert.equal(next.thresholds.cpaSpikePct, 30);
+      assert.equal(next.limits.maxCampaignsPerRun, 3);
+      assert.equal(next.limits.maxDailyAutoActions, 10);
+    })
+  },
+  {
+    name: 'ops guard data model persists incidents, actions, and rollback snapshots',
+    fn: () => withTempHome(() => {
+      const ws = storage.ensureWorkspace('clientA');
+
+      const incident = storage.addIncident(ws, {
+        type: 'spend_spike',
+        severity: 'high',
+        title: 'Spend spiked in 1h',
+        detail: 'Hourly spend crossed threshold.'
+      });
+      assert.equal(incident.status, 'open');
+
+      const resolved = storage.updateIncident(ws, incident.id, { status: 'resolved' });
+      assert.equal(resolved.status, 'resolved');
+
+      const action = storage.appendActionLog(ws, {
+        incidentId: incident.id,
+        action: 'marketing.pause_overspend',
+        status: 'executed',
+        risk: 'high',
+        actor: 'test-user',
+        summary: 'Paused top overspending campaigns.'
+      });
+      assert.equal(action.incidentId, incident.id);
+
+      const snapshot = storage.addRollbackSnapshot(ws, {
+        actionId: action.id,
+        targetType: 'campaign',
+        targetId: 'cmp_123',
+        before: { status: 'ACTIVE' },
+        after: { status: 'PAUSED' }
+      });
+      assert.equal(snapshot.targetType, 'campaign');
+
+      assert.equal(storage.listIncidents(ws).length, 1);
+      assert.equal(storage.listActionLog(ws).length, 1);
+      assert.equal(storage.listRollbackSnapshots(ws).length, 1);
+    })
   }
 ];
