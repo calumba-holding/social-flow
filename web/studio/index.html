@@ -16,13 +16,18 @@
     <header class="topbar">
       <div class="topbar-logo">
         <span class="logo-dot"></span>
-        SOCIAL API GATEWAY
+        LOCALHOST GATEWAY
       </div>
       <div class="topbar-sep"></div>
       <div class="topbar-status">
-        <span class="mono">v0.2</span>
-        <span class="badge badge-ok">API LIVE</span>
+        <span class="mono">Mission Control</span>
+        <span id="topApiBadge" class="badge badge-ok">API LIVE</span>
         <span id="topPendingBadge" class="badge badge-warn">0 PENDING</span>
+      </div>
+      <div class="topbar-live mono">
+        <span>ws=<span id="topWorkspaceText">default</span></span>
+        <span>lat=<span id="topLatencyText">-</span></span>
+        <span>now=<span id="topClockText">--:--:--</span></span>
       </div>
       <div class="topbar-kpis">
         <div class="kpi"><span id="kpiMessages" class="kpi-val">0</span><span class="kpi-label">Messages</span></div>
@@ -40,8 +45,8 @@
       <section class="brand">
         <div class="logo-ring"></div>
         <div>
-          <h1>SOCIAL API GATEWAY</h1>
-          <p>Localhost Control Plane</p>
+          <h1>LOCALHOST CONTROL</h1>
+          <p>Agency Ops Mission Control</p>
           <p>Works with Meta APIs</p>
           <p id="buildLabel" class="build-label">Build: loading...</p>
         </div>
@@ -94,6 +99,10 @@
       </header>
 
       <section id="view-chat" class="view-panel active">
+        <div class="chat-meta-strip mono">
+          <span>channel: chat.agent.default</span>
+          <span>guard: evidence + approvals</span>
+        </div>
         <section id="messageList" class="message-list"></section>
         <footer class="composer">
           <textarea id="messageInput" rows="2" placeholder="Type a message..."></textarea>

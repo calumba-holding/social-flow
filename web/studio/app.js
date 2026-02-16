@@ -27,9 +27,14 @@ const els = {
   sessionsList: document.getElementById('sessionsList'),
   newSessionBtn: document.getElementById('newSessionBtn'),
   notifBtn: document.getElementById('notifBtn'),
+  bellDot: document.querySelector('.bell-dot'),
   healthStatus: document.getElementById('healthStatus'),
   buildLabel: document.getElementById('buildLabel'),
+  topApiBadge: document.getElementById('topApiBadge'),
   topPendingBadge: document.getElementById('topPendingBadge'),
+  topWorkspaceText: document.getElementById('topWorkspaceText'),
+  topLatencyText: document.getElementById('topLatencyText'),
+  topClockText: document.getElementById('topClockText'),
   kpiMessages: document.getElementById('kpiMessages'),
   kpiPending: document.getElementById('kpiPending'),
   kpiExecuted: document.getElementById('kpiExecuted'),
@@ -151,12 +156,26 @@ function applySettings() {
   }
 }
 
+function setTopClock() {
+  if (els.topClockText) {
+    els.topClockText.textContent = new Date().toLocaleTimeString();
+  }
+}
+
+function setTopLatency(ms) {
+  if (!els.topLatencyText) return;
+  els.topLatencyText.textContent = `${ms}ms`;
+  els.topLatencyText.classList.toggle('latency-warn', ms >= 700);
+}
+
 async function api(path, options = {}) {
+  const startedAt = Date.now();
   const res = await fetch(path, {
     method: options.method || 'GET',
     headers: { 'Content-Type': 'application/json' },
     body: options.body ? JSON.stringify(options.body) : undefined
   });
+  setTopLatency(Date.now() - startedAt);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.error || `Request failed: ${res.status}`);
@@ -207,6 +226,9 @@ function updateKpis(payload = {}) {
   if (els.kpiPending) els.kpiPending.textContent = String(pendingCount);
   if (els.kpiExecuted) els.kpiExecuted.textContent = String(executedCount);
   if (els.topPendingBadge) els.topPendingBadge.textContent = `${pendingCount} PENDING`;
+  if (els.bellDot) {
+    els.bellDot.classList.toggle('hidden', pendingCount <= 0);
+  }
 }
 
 function renderTable(target, columns, rows) {
@@ -271,6 +293,9 @@ async function refreshConfig() {
     state.workspace = String(res.config?.activeProfile || 'default');
     if (els.opsWorkspaceText) {
       els.opsWorkspaceText.textContent = state.workspace;
+    }
+    if (els.topWorkspaceText) {
+      els.topWorkspaceText.textContent = state.workspace;
     }
   } catch (error) {
     els.configDump.textContent = `Failed to load config: ${error.message}`;
@@ -596,6 +621,11 @@ async function checkHealth() {
     els.healthStatus.textContent = isLegacy
       ? `Legacy build detected (${service})`
       : `Online (${version})`;
+    if (els.topApiBadge) {
+      els.topApiBadge.classList.remove('badge-ok', 'badge-warn', 'badge-error');
+      els.topApiBadge.classList.add(isLegacy ? 'badge-warn' : 'badge-ok');
+      els.topApiBadge.textContent = isLegacy ? 'LEGACY BUILD' : 'API LIVE';
+    }
     if (els.buildLabel) {
       els.buildLabel.textContent = `${service || 'unknown-service'} | v${version || '-'}`;
     }
@@ -605,6 +635,11 @@ async function checkHealth() {
   } catch (error) {
     els.healthStatus.textContent = `Offline: ${error.message}`;
     els.healthStatus.classList.add('warn');
+    if (els.topApiBadge) {
+      els.topApiBadge.classList.remove('badge-ok', 'badge-warn');
+      els.topApiBadge.classList.add('badge-error');
+      els.topApiBadge.textContent = 'API OFFLINE';
+    }
     if (els.buildLabel) {
       els.buildLabel.textContent = 'Build: unavailable';
     }
@@ -852,6 +887,8 @@ function wireEvents() {
 }
 
 async function init() {
+  setTopClock();
+  setInterval(setTopClock, 1000);
   loadSettings();
   applySettings();
   if (window.matchMedia) {
