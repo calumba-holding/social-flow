@@ -364,6 +364,7 @@ See `docs/AI_INTERFACE.md` for full architecture and troubleshooting.
 - Keeps context across messages in a session
 - Routes work across specialist agents (`Router`, `Marketing`, `Developer`, `Ops`, `Connector`)
 - Enforces specialist tool-scope boundaries before execution
+- Executes concrete `Ops` and `Connector` specialist actions (summary, morning-run, run-due, ack token alerts, approve low-risk, source list/sync)
 - Proposes actions and waits for explicit confirmation
 - Executes through internal API clients (no shell/eval)
 - Saves and resumes sessions across CLI runs

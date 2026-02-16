@@ -6,6 +6,7 @@ const path = require('path');
 const { ConversationContext } = require('../lib/chat/context');
 const { PersistentMemory } = require('../lib/chat/memory');
 const { AutonomousAgent } = require('../lib/chat/agent');
+const opsStorage = require('../lib/ops/storage');
 
 module.exports = [
   {
@@ -310,6 +311,70 @@ module.exports = [
       const summary = ctx.getSummary();
       assert.equal(summary.activeSpecialist, 'developer');
       assert.equal(summary.specialistsSeen.includes('developer'), true);
+    }
+  },
+  {
+    name: 'chat agent routes ops summary requests to ops specialist executor',
+    fn: async () => {
+      const ws = `chat_ops_${Date.now()}`;
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook', getActiveProfile: () => ws },
+        options: {}
+      });
+      const res = await agent.process(`show ops summary for workspace ${ws}`);
+      assert.equal(res.specialist, 'ops');
+      assert.equal(res.actions.length, 1);
+      assert.equal(res.actions[0].tool, 'ops.summary');
+      assert.equal(res.actions[0].params.workspace, ws);
+    }
+  },
+  {
+    name: 'chat agent executes ops summary specialist tool',
+    fn: async () => {
+      const ws = `chat_ops_exec_${Date.now()}`;
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook', getActiveProfile: () => ws },
+        options: {}
+      });
+      const out = await agent.execute({
+        tool: 'ops.summary',
+        params: { workspace: ws },
+        description: 'Load ops summary'
+      });
+      assert.equal(out.success, true);
+      assert.equal(out.raw?.data?.workspace, ws);
+      assert.equal(typeof out.raw?.data?.summary?.alertsOpen, 'number');
+    }
+  },
+  {
+    name: 'chat agent executes connector sync specialist tool',
+    fn: async () => {
+      const ws = `chat_connector_${Date.now()}`;
+      opsStorage.upsertSource(ws, {
+        name: 'CSV Sync Source',
+        connector: 'csv_upload',
+        syncMode: 'manual',
+        enabled: true
+      });
+
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook', getActiveProfile: () => ws },
+        options: {}
+      });
+      const out = await agent.execute({
+        tool: 'connector.sources.sync',
+        params: { workspace: ws },
+        description: 'Sync connector sources'
+      });
+      assert.equal(out.success, true);
+      assert.equal(Array.isArray(out.raw?.data?.result), true);
+      assert.equal(out.raw.data.result.length > 0, true);
     }
   }
 ];

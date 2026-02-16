@@ -13,9 +13,11 @@ function withTempHome(fn) {
   const prevMeta = process.env.META_CLI_HOME;
   process.env.SOCIAL_CLI_HOME = dir;
   process.env.META_CLI_HOME = dir;
+  if (typeof storage.resetCacheForTests === 'function') storage.resetCacheForTests();
   try {
     return fn(dir);
   } finally {
+    if (typeof storage.resetCacheForTests === 'function') storage.resetCacheForTests();
     if (prevSocial === undefined) delete process.env.SOCIAL_CLI_HOME;
     else process.env.SOCIAL_CLI_HOME = prevSocial;
     if (prevMeta === undefined) delete process.env.META_CLI_HOME;
