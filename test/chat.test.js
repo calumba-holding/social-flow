@@ -261,5 +261,55 @@ module.exports = [
       assert.equal(res.actions[0].tool, 'local.ollama.setup');
       assert.equal(res.actions[0].params.model, 'llama3.1:8b');
     }
+  },
+  {
+    name: 'chat agent classifies specialist by tool domain',
+    fn: () => {
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook' },
+        options: {}
+      });
+      assert.equal(agent.selectSpecialist('anything', [{ tool: 'auth.status' }]), 'developer');
+      assert.equal(agent.selectSpecialist('anything', [{ tool: 'query_insights' }]), 'marketing');
+      assert.equal(agent.selectSpecialist('anything', [{ tool: 'ops.guard.mode' }]), 'ops');
+      assert.equal(agent.selectSpecialist('anything', [{ tool: 'sources.sync' }]), 'connector');
+    }
+  },
+  {
+    name: 'chat agent enforces specialist scope guard',
+    fn: () => {
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook' },
+        options: {}
+      });
+      const scoped = agent.enforceSpecialistScope('developer', [
+        { tool: 'auth.status', params: {} },
+        { tool: 'list_campaigns', params: {} }
+      ]);
+      assert.equal(scoped.allowed.length, 1);
+      assert.equal(scoped.allowed[0].tool, 'auth.status');
+      assert.equal(scoped.blocked.length, 1);
+      assert.equal(scoped.blocked[0].tool, 'list_campaigns');
+    }
+  },
+  {
+    name: 'chat agent writes active specialist into context summary',
+    fn: async () => {
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook' },
+        options: {}
+      });
+      const res = await agent.process('check auth status for this profile');
+      assert.equal(res.specialist, 'developer');
+      const summary = ctx.getSummary();
+      assert.equal(summary.activeSpecialist, 'developer');
+      assert.equal(summary.specialistsSeen.includes('developer'), true);
+    }
   }
 ];
