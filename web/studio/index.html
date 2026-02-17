@@ -641,6 +641,7 @@
           <div class="plan-actions">
             <button id="teamInviteCreateBtn" class="ghost-btn small">Create Invite</button>
             <button id="teamInviteRefreshBtn" class="ghost-btn small">Refresh Invites</button>
+            <button id="teamInviteStatsRefreshBtn" class="ghost-btn small">Refresh Invite Stats</button>
           </div>
           <div class="settings-list waba-form">
             <label class="setting-item setting-select-row">
@@ -656,6 +657,12 @@
             <button id="teamInviteAcceptBtn" class="ghost-btn small">Accept Invite</button>
           </div>
           <p id="teamInviteSummary" class="muted">No invites loaded yet.</p>
+          <div class="stats-grid">
+            <article class="stat-card"><p class="kpi-label">Active</p><p id="teamInviteActiveStat" class="kpi-value">0</p></article>
+            <article class="stat-card"><p class="kpi-label">Accepted</p><p id="teamInviteAcceptedStat" class="kpi-value">0</p></article>
+            <article class="stat-card"><p class="kpi-label">Expired 30d</p><p id="teamInviteExpiredStat" class="kpi-value">0</p></article>
+            <article class="stat-card"><p class="kpi-label">Avg Accept (min)</p><p id="teamInviteAvgAcceptStat" class="kpi-value">0</p></article>
+          </div>
           <div id="teamInvitesTable" class="table-wrap"></div>
         </article>
       </section>

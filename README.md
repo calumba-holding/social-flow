@@ -634,6 +634,7 @@ Gateway endpoints:
 - `GET /api/ops/handoff/file?path=<absolute-path>` (download generated handoff file)
 - `GET /api/team/roles?workspace=<ws>` (list users + effective role for workspace)
 - `GET /api/team/invites?workspace=<ws>&open=1` (list workspace invites)
+- `GET /api/team/invites/stats?workspace=<ws>&days=30` (invite analytics + accept latency)
 - `POST /api/team/invites` (create invite)
 - `POST /api/team/invites/resend` (rotate invite token and generate new link)
 - `POST /api/team/invites/revoke` (revoke invite)
@@ -661,6 +662,7 @@ Studio now shows download + copy-path actions for generated handoff files.
 `Settings -> Team Management` includes an `Accept Invite` form (token + user ID) for one-click onboarding.
 Invite links are supported (`?invite=<token>`), and Studio auto-prefills the token from URL.
 Invite tokens are one-time-visible (shown at create/resend only; list views show masked tokens).
+Studio shows invite analytics cards (active/accepted/expired/avg accept) and supports resend for expired invites.
 
 Studio shortcuts:
 

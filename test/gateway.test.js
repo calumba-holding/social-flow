@@ -560,6 +560,16 @@ module.exports = [
         assert.equal(inviteList.data.invites.length > 0, true);
         assert.equal(String(inviteList.data.invites[0].token || ''), '');
 
+        const inviteStats = await requestJson({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/team/invites/stats?workspace=default&days=30'
+        });
+        assert.equal(inviteStats.status, 200);
+        assert.equal(inviteStats.data.ok, true);
+        assert.equal(typeof inviteStats.data.stats.active, 'number');
+        assert.equal(typeof inviteStats.data.stats.avgAcceptMs, 'number');
+
         const inviteResend = await requestJson({
           port: server.port,
           method: 'POST',

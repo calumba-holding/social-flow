@@ -243,11 +243,16 @@ const els = {
   teamInviteExpiresInput: document.getElementById('teamInviteExpiresInput'),
   teamInviteCreateBtn: document.getElementById('teamInviteCreateBtn'),
   teamInviteRefreshBtn: document.getElementById('teamInviteRefreshBtn'),
+  teamInviteStatsRefreshBtn: document.getElementById('teamInviteStatsRefreshBtn'),
   teamInviteAcceptTokenInput: document.getElementById('teamInviteAcceptTokenInput'),
   teamInviteAcceptUserInput: document.getElementById('teamInviteAcceptUserInput'),
   teamInviteAcceptBtn: document.getElementById('teamInviteAcceptBtn'),
   teamInviteSummary: document.getElementById('teamInviteSummary'),
-  teamInvitesTable: document.getElementById('teamInvitesTable')
+  teamInvitesTable: document.getElementById('teamInvitesTable'),
+  teamInviteActiveStat: document.getElementById('teamInviteActiveStat'),
+  teamInviteAcceptedStat: document.getElementById('teamInviteAcceptedStat'),
+  teamInviteExpiredStat: document.getElementById('teamInviteExpiredStat'),
+  teamInviteAvgAcceptStat: document.getElementById('teamInviteAvgAcceptStat')
 };
 
 function nowTime() {
@@ -784,6 +789,15 @@ function renderTeamInvites() {
   `;
 }
 
+function renderTeamInviteStats(stats) {
+  const s = stats && typeof stats === 'object' ? stats : {};
+  if (els.teamInviteActiveStat) els.teamInviteActiveStat.textContent = String(s.active || 0);
+  if (els.teamInviteAcceptedStat) els.teamInviteAcceptedStat.textContent = String(s.accepted || 0);
+  if (els.teamInviteExpiredStat) els.teamInviteExpiredStat.textContent = String(s.expiredRecent || 0);
+  const avgMin = Number.isFinite(Number(s.avgAcceptMs)) ? Math.round(Number(s.avgAcceptMs) / 60000) : 0;
+  if (els.teamInviteAvgAcceptStat) els.teamInviteAvgAcceptStat.textContent = String(avgMin || 0);
+}
+
 async function refreshTeamStatus() {
   try {
     const res = await api('/api/team/status');
@@ -869,6 +883,16 @@ async function refreshTeamInvites() {
   }
 }
 
+async function refreshTeamInviteStats() {
+  try {
+    const ws = encodeURIComponent(state.workspace || 'default');
+    const res = await api(`/api/team/invites/stats?workspace=${ws}&days=30`);
+    renderTeamInviteStats(res.stats || {});
+  } catch (error) {
+    appendMessage('system', `Team invite stats error: ${error.message}`);
+  }
+}
+
 async function createTeamInviteFromUi() {
   const role = String((els.teamInviteRoleInput && els.teamInviteRoleInput.value) || 'viewer').trim();
   const expiresInHours = Number((els.teamInviteExpiresInput && els.teamInviteExpiresInput.value) || 72);
@@ -883,6 +907,7 @@ async function createTeamInviteFromUi() {
   if (token) appendMessage('system', `Accept command (one-time): social ops invite accept ${token} --user <user-id>`);
   state.team.invites = Array.isArray(res.invites) ? res.invites : state.team.invites;
   renderTeamInvites();
+  await refreshTeamInviteStats();
 }
 
 async function resendTeamInviteFromUi(id) {
@@ -904,6 +929,7 @@ async function resendTeamInviteFromUi(id) {
   if (token) appendMessage('system', `Accept command (one-time): social ops invite accept ${token} --user <user-id>`);
   state.team.invites = Array.isArray(res.invites) ? res.invites : state.team.invites;
   renderTeamInvites();
+  await refreshTeamInviteStats();
 }
 
 function prefillInviteFromQuery() {
@@ -935,6 +961,7 @@ async function acceptTeamInviteFromUi() {
   await refreshTeamStatus();
   await refreshTeamRoles();
   await refreshTeamInvites();
+  await refreshTeamInviteStats();
 }
 
 async function refreshTeamActivity() {
@@ -1516,6 +1543,7 @@ function setActiveView(view) {
   if (view === 'config') refreshConfig();
   if (view === 'settings') refreshTeamStatus();
   if (view === 'settings') refreshTeamInvites();
+  if (view === 'settings') refreshTeamInviteStats();
 }
 
 function renderExecuted(executed) {
@@ -1973,6 +2001,7 @@ function wireEvents() {
         });
         appendMessage('system', `Invite revoked: ${id}`);
         await refreshTeamInvites();
+        await refreshTeamInviteStats();
       } else if (btn.classList.contains('js-team-invite-resend')) {
         const id = String(btn.getAttribute('data-id') || '').trim();
         if (!id) return;
@@ -2109,6 +2138,11 @@ function wireEvents() {
       void refreshTeamInvites();
     });
   }
+  if (els.teamInviteStatsRefreshBtn) {
+    els.teamInviteStatsRefreshBtn.addEventListener('click', () => {
+      void refreshTeamInviteStats();
+    });
+  }
   if (els.teamInviteAcceptBtn) {
     els.teamInviteAcceptBtn.addEventListener('click', () => {
       void acceptTeamInviteFromUi();
@@ -2166,6 +2200,7 @@ async function init() {
   await runRegionPreflight();
   await refreshTeamStatus();
   await refreshTeamInvites();
+  await refreshTeamInviteStats();
   await refreshTeamActivity();
   setActiveView('chat');
 }
