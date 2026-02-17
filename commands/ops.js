@@ -56,6 +56,11 @@ function toIsoOrFallback(value, fallbackIso) {
   return new Date(ts).toISOString();
 }
 
+function normalizeHandoffTemplate(value) {
+  const template = String(value || 'agency').trim().toLowerCase();
+  return ['simple', 'agency', 'enterprise'].includes(template) ? template : '';
+}
+
 function buildHandoffDoc({
   template,
   workspace,
@@ -179,6 +184,70 @@ function buildHandoffDoc({
 
   return [
     ...common,
+    ''
+  ].join('\n');
+}
+
+function buildRunbookDoc({ workspace, generatedAt }) {
+  const ws = workspace || 'default';
+  return [
+    `# Daily Runbook - ${ws}`,
+    '',
+    `Generated: ${generatedAt}`,
+    '',
+    '## Daily',
+    `1. \`social ops morning-run --workspace ${ws} --spend 0\``,
+    `2. \`social ops alerts list --workspace ${ws} --open\``,
+    `3. \`social ops approvals list --workspace ${ws} --open\``,
+    `4. \`social ops activity list --workspace ${ws} --limit 50\``,
+    '',
+    '## Weekly',
+    `1. Review outcomes: \`social ops outcomes list --workspace ${ws} --limit 100\``,
+    `2. Export activity logs (Studio or API endpoint)`,
+    '3. Review role assignments for least privilege',
+    '',
+    '## Escalation',
+    '- Token/auth issue: run `social doctor` and re-auth.',
+    '- Permission issue: verify `social ops user show` and `social ops roles show`.',
+    '- Pause risky automation: set guard mode to approval.',
+    ''
+  ].join('\n');
+}
+
+function buildAccessMatrixCsv({ workspace }) {
+  const ws = workspace || 'default';
+  return [
+    'workspace,user,role,owner_approved,notes',
+    `${ws},<user1>,viewer,yes,read-only`,
+    `${ws},<user2>,analyst,yes,analysis and notes`,
+    `${ws},<user3>,operator,yes,can approve and execute`,
+    `${ws},<user4>,owner,yes,full admin`
+  ].join('\n');
+}
+
+function buildIncidentPlaybookDoc({ workspace, generatedAt }) {
+  const ws = workspace || 'default';
+  return [
+    `# Incident Playbook - ${ws}`,
+    '',
+    `Generated: ${generatedAt}`,
+    '',
+    '## Severity Levels',
+    '- P1: Credential compromise, unauthorized actions, major outage',
+    '- P2: Repeated approval failures, workflow failures, token expiry during active campaigns',
+    '- P3: Non-blocking data/config drift',
+    '',
+    '## Response Flow',
+    '1. Identify and classify severity.',
+    `2. Capture current state: \`social ops alerts list --workspace ${ws} --json\` and \`social ops approvals list --workspace ${ws} --json\``,
+    `3. Pause risky actions: guard mode -> approval`,
+    '4. Assign incident owner + operator.',
+    '5. Resolve, then capture outcome and audit export.',
+    '',
+    '## Post-Incident',
+    '- Record root cause and preventive actions.',
+    '- Review role assignments and guard thresholds.',
+    '- Update handoff/runbook documents.',
     ''
   ].join('\n');
 }
@@ -734,7 +803,7 @@ function registerOpsCommands(program) {
       );
     });
 
-  ops
+  const handoff = ops
     .command('handoff')
     .description('Generate a one-file team onboarding and runbook document for a workspace')
     .option('--workspace <name>', 'Workspace/profile name')
@@ -749,9 +818,8 @@ function registerOpsCommands(program) {
       const ws = workspaceFrom(options);
       rbac.assertCan({ workspace: ws, action: 'read' });
       const suggestedRunAt = toIsoOrFallback(options.runAt, new Date().toISOString());
-      const template = String(options.template || 'agency').trim().toLowerCase();
-      const allowedTemplates = new Set(['simple', 'agency', 'enterprise']);
-      if (!allowedTemplates.has(template)) {
+      const template = normalizeHandoffTemplate(options.template);
+      if (!template) {
         console.error(chalk.red('\nX Invalid template. Use: simple, agency, enterprise\n'));
         process.exit(1);
       }
@@ -780,6 +848,67 @@ function registerOpsCommands(program) {
         return;
       }
       console.log(chalk.green(`\nOK Handoff document generated: ${outputPath}\n`));
+    });
+
+  handoff
+    .command('pack')
+    .description('Generate a full handoff pack (handoff, runbook, access matrix, incident playbook)')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--out-dir <dir>', 'Output directory path')
+    .option('--template <name>', 'Template: simple|agency|enterprise', 'agency')
+    .option('--studio-url <url>', 'Studio URL', 'http://127.0.0.1:1310')
+    .option('--gateway-api-key <key>', 'Gateway API key placeholder/value')
+    .option('--operator-id <id>', 'Default operator id placeholder')
+    .option('--run-at <iso>', 'Suggested daily run time (ISO)')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      const template = normalizeHandoffTemplate(options.template);
+      if (!template) {
+        console.error(chalk.red('\nX Invalid template. Use: simple, agency, enterprise\n'));
+        process.exit(1);
+      }
+      const generatedAt = new Date().toISOString();
+      const suggestedRunAt = toIsoOrFallback(options.runAt, generatedAt);
+      const outDir = path.resolve(process.cwd(), String(options.outDir || `handoff-${ws}`));
+      fs.mkdirSync(outDir, { recursive: true });
+
+      const files = {
+        handoff: path.join(outDir, 'handoff.md'),
+        runbook: path.join(outDir, 'runbook.md'),
+        accessMatrix: path.join(outDir, 'access-matrix.csv'),
+        incidentPlaybook: path.join(outDir, 'incident-playbook.md')
+      };
+
+      fs.writeFileSync(files.handoff, buildHandoffDoc({
+        template,
+        workspace: ws,
+        studioUrl: String(options.studioUrl || 'http://127.0.0.1:1310').trim(),
+        gatewayApiKey: String(options.gatewayApiKey || '').trim(),
+        operatorId: String(options.operatorId || '').trim(),
+        runAtIso: suggestedRunAt,
+        generatedAt
+      }), 'utf8');
+      fs.writeFileSync(files.runbook, buildRunbookDoc({ workspace: ws, generatedAt }), 'utf8');
+      fs.writeFileSync(files.accessMatrix, buildAccessMatrixCsv({ workspace: ws }), 'utf8');
+      fs.writeFileSync(files.incidentPlaybook, buildIncidentPlaybookDoc({ workspace: ws, generatedAt }), 'utf8');
+
+      if (options.json) {
+        console.log(JSON.stringify({
+          ok: true,
+          workspace: ws,
+          template,
+          outDir,
+          files
+        }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Handoff pack generated: ${outDir}`));
+      console.log(chalk.gray(`- ${files.handoff}`));
+      console.log(chalk.gray(`- ${files.runbook}`));
+      console.log(chalk.gray(`- ${files.accessMatrix}`));
+      console.log(chalk.gray(`- ${files.incidentPlaybook}\n`));
     });
 
   const schedule = ops.command('schedule').description('Job scheduler for automated runs');
