@@ -345,6 +345,15 @@ module.exports = [
         assert.equal(typeof summary1.data.summary.alertsOpen, 'number');
         assert.equal(typeof summary1.data.summary.guardPolicy.mode, 'string');
 
+        const readiness1 = await requestJson({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/ops/readiness?workspace=default'
+        });
+        assert.equal(readiness1.status, 200);
+        assert.equal(readiness1.data.ok, true);
+        assert.equal(Array.isArray(readiness1.data.report.checks), true);
+
         const guardGet = await requestJson({
           port: server.port,
           method: 'GET',
@@ -416,6 +425,26 @@ module.exports = [
         assert.equal(Array.isArray(sourceSync.data.result), true);
         assert.equal(sourceSync.data.result.length > 0, true);
         assert.equal(sourceSync.data.result[0].source.status, 'ready');
+
+        const onboardWorkspace = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/onboard/workspace',
+          body: { workspace: 'default' }
+        });
+        assert.equal(onboardWorkspace.status, 200);
+        assert.equal(onboardWorkspace.data.ok, true);
+        assert.equal(Boolean(onboardWorkspace.data.schedule), true);
+
+        const onboardingComplete = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/onboarding/complete',
+          body: { workspace: 'default', completed: true }
+        });
+        assert.equal(onboardingComplete.status, 200);
+        assert.equal(onboardingComplete.data.ok, true);
+        assert.equal(Boolean(onboardingComplete.data.state.onboardingCompletedAt), true);
 
         const slackSourceUpsert = await requestJson({
           port: server.port,

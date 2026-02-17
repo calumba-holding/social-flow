@@ -514,6 +514,19 @@
         </div>
         <article class="data-card waba-card">
           <div class="panel-head">
+            <p class="section-label">Workspace Readiness</p>
+            <span id="readinessBadge" class="badge badge-warn">CHECK NEEDED</span>
+          </div>
+          <div class="plan-actions">
+            <button id="readinessRefreshBtn" class="ghost-btn small">Refresh Readiness</button>
+            <button id="readinessCreateScheduleBtn" class="ghost-btn small">Create Morning Schedule</button>
+            <button id="readinessCompleteBtn" class="ghost-btn small">Mark Onboarding Complete</button>
+          </div>
+          <p id="readinessSummary" class="muted">No readiness report yet.</p>
+          <div id="readinessChecksTable" class="table-wrap"></div>
+        </article>
+        <article class="data-card waba-card">
+          <div class="panel-head">
             <p class="section-label">WhatsApp Integration</p>
             <span id="wabaConnectBadge" class="badge badge-warn">NOT CONNECTED</span>
           </div>

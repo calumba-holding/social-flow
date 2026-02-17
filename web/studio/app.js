@@ -22,6 +22,7 @@ const state = {
     roles: [],
     invites: []
   },
+  readiness: null,
   opsSnapshot: null,
   sources: [],
   guardPolicy: null,
@@ -208,6 +209,12 @@ const els = {
   settingLang: document.getElementById('settingLang'),
   settingGatewayApiKey: document.getElementById('settingGatewayApiKey'),
   themeToggleBtn: document.getElementById('themeToggleBtn'),
+  readinessBadge: document.getElementById('readinessBadge'),
+  readinessRefreshBtn: document.getElementById('readinessRefreshBtn'),
+  readinessCreateScheduleBtn: document.getElementById('readinessCreateScheduleBtn'),
+  readinessCompleteBtn: document.getElementById('readinessCompleteBtn'),
+  readinessSummary: document.getElementById('readinessSummary'),
+  readinessChecksTable: document.getElementById('readinessChecksTable'),
   wabaConnectBadge: document.getElementById('wabaConnectBadge'),
   wabaTokenInput: document.getElementById('wabaTokenInput'),
   wabaBusinessIdInput: document.getElementById('wabaBusinessIdInput'),
@@ -798,6 +805,51 @@ function renderTeamInviteStats(stats) {
   if (els.teamInviteAvgAcceptStat) els.teamInviteAvgAcceptStat.textContent = String(avgMin || 0);
 }
 
+function renderReadiness(report) {
+  const r = report && typeof report === 'object' ? report : null;
+  state.readiness = r;
+  if (!r) return;
+  const status = String(r.status || 'needs_setup');
+  if (els.readinessBadge) {
+    els.readinessBadge.classList.remove('badge-ok', 'badge-warn');
+    if (status === 'ready') {
+      els.readinessBadge.classList.add('badge-ok');
+      els.readinessBadge.textContent = 'READY';
+    } else if (status === 'in_progress') {
+      els.readinessBadge.classList.add('badge-warn');
+      els.readinessBadge.textContent = 'IN PROGRESS';
+    } else {
+      els.readinessBadge.classList.add('badge-warn');
+      els.readinessBadge.textContent = 'NEEDS SETUP';
+    }
+  }
+  if (els.readinessSummary) {
+    const passed = Number(r.score && r.score.passed || 0);
+    const total = Number(r.score && r.score.total || 0);
+    els.readinessSummary.textContent = `Readiness ${passed}/${total} checks passed.`;
+  }
+  if (els.readinessChecksTable) {
+    const rows = Array.isArray(r.checks) ? r.checks : [];
+    if (!rows.length) {
+      els.readinessChecksTable.innerHTML = '<p class="empty-note">No readiness checks available.</p>';
+    } else {
+      const body = rows.map((x) => `
+        <tr>
+          <td>${escapeHtml(x.key || '')}</td>
+          <td>${x.ok ? '<span class="badge badge-ok">PASS</span>' : '<span class="badge badge-warn">PENDING</span>'}</td>
+          <td>${escapeHtml(x.detail || '')}</td>
+        </tr>
+      `).join('');
+      els.readinessChecksTable.innerHTML = `
+        <table class="mini-table">
+          <thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
+    }
+  }
+}
+
 async function refreshTeamStatus() {
   try {
     const res = await api('/api/team/status');
@@ -891,6 +943,34 @@ async function refreshTeamInviteStats() {
   } catch (error) {
     appendMessage('system', `Team invite stats error: ${error.message}`);
   }
+}
+
+async function refreshReadiness() {
+  try {
+    const ws = encodeURIComponent(state.workspace || 'default');
+    const res = await api(`/api/ops/readiness?workspace=${ws}`);
+    renderReadiness(res.report || null);
+  } catch (error) {
+    appendMessage('system', `Readiness error: ${error.message}`);
+  }
+}
+
+async function createMorningScheduleFromReadiness() {
+  const res = await api('/api/ops/onboard/workspace', {
+    method: 'POST',
+    body: { workspace: state.workspace }
+  });
+  appendMessage('system', `Morning schedule ready: ${res.schedule && res.schedule.id ? res.schedule.id : 'ok'}`);
+  await refreshReadiness();
+}
+
+async function markOnboardingCompleteFromReadiness() {
+  await api('/api/ops/onboarding/complete', {
+    method: 'POST',
+    body: { workspace: state.workspace, completed: true }
+  });
+  appendMessage('system', 'Onboarding marked complete.');
+  await refreshReadiness();
 }
 
 async function createTeamInviteFromUi() {
@@ -1544,6 +1624,7 @@ function setActiveView(view) {
   if (view === 'settings') refreshTeamStatus();
   if (view === 'settings') refreshTeamInvites();
   if (view === 'settings') refreshTeamInviteStats();
+  if (view === 'settings') refreshReadiness();
 }
 
 function renderExecuted(executed) {
@@ -2030,6 +2111,21 @@ function wireEvents() {
       persistSettings();
     });
   }
+  if (els.readinessRefreshBtn) {
+    els.readinessRefreshBtn.addEventListener('click', () => {
+      void refreshReadiness();
+    });
+  }
+  if (els.readinessCreateScheduleBtn) {
+    els.readinessCreateScheduleBtn.addEventListener('click', () => {
+      void createMorningScheduleFromReadiness();
+    });
+  }
+  if (els.readinessCompleteBtn) {
+    els.readinessCompleteBtn.addEventListener('click', () => {
+      void markOnboardingCompleteFromReadiness();
+    });
+  }
 
   if (els.settingAutoScroll) {
     els.settingAutoScroll.addEventListener('change', () => {
@@ -2201,6 +2297,7 @@ async function init() {
   await refreshTeamStatus();
   await refreshTeamInvites();
   await refreshTeamInviteStats();
+  await refreshReadiness();
   await refreshTeamActivity();
   setActiveView('chat');
 }

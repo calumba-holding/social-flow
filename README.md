@@ -630,6 +630,9 @@ Gateway endpoints:
 - `POST /api/ai` (alias of chat message route for Studio UI)
 - `POST /api/execute` (execute a provided plan)
 - `POST /api/cancel` (cancel stub response for compatibility)
+- `GET /api/ops/readiness?workspace=<ws>` (workspace onboarding readiness checks)
+- `POST /api/ops/onboard/workspace` (create workspace morning schedule bootstrap)
+- `POST /api/ops/onboarding/complete` (mark onboarding complete)
 - `POST /api/ops/handoff/pack` (generate handoff/runbook/access-matrix/incident-playbook files)
 - `GET /api/ops/handoff/file?path=<absolute-path>` (download generated handoff file)
 - `GET /api/team/roles?workspace=<ws>` (list users + effective role for workspace)
@@ -663,6 +666,7 @@ Studio now shows download + copy-path actions for generated handoff files.
 Invite links are supported (`?invite=<token>`), and Studio auto-prefills the token from URL.
 Invite tokens are one-time-visible (shown at create/resend only; list views show masked tokens).
 Studio shows invite analytics cards (active/accepted/expired/avg accept) and supports resend for expired invites.
+`Settings -> Workspace Readiness` provides a guided onboarding checklist with one-click schedule setup and completion mark.
 
 Studio shortcuts:
 
