@@ -1,4 +1,7 @@
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const MetaAPIClient = require('../lib/api-client');
 const { aiParseIntent, heuristicParse, parseJsonPayload, parseDateTimeFromText } = require('../lib/ai/parser');
@@ -167,7 +170,8 @@ module.exports = [
           action: 'post_whatsapp',
           message: 'hello',
           phone: '+15551234567',
-          phoneId: '123456'
+          phoneId: '123456',
+          allowReplay: true
         }, {
           getToken: (api) => (api === 'whatsapp' ? 'fake-token' : '')
         });
@@ -226,6 +230,66 @@ module.exports = [
       assert.equal(result.success, false);
       assert.equal(typeof result.error, 'string');
       assert.equal(Boolean(result.metadata), true);
+    }
+  },
+  {
+    name: 'executor: write action idempotency skips duplicate execution',
+    fn: async () => {
+      const oldHome = process.env.META_CLI_HOME;
+      process.env.META_CLI_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-idem-test-'));
+      try {
+        const cfg = {
+          setDefaultFacebookPageId: () => {}
+        };
+        const intent = {
+          action: 'set_default_account',
+          platform: 'facebook',
+          accountId: '12345'
+        };
+        const first = await executeIntent(intent, cfg);
+        assert.equal(first.success, true);
+        const second = await executeIntent(intent, cfg);
+        assert.equal(second.success, true);
+        assert.equal(second.data.status, 'idempotent_skip');
+        assert.equal(Boolean(second.data.idempotencyKey), true);
+      } finally {
+        process.env.META_CLI_HOME = oldHome;
+      }
+    }
+  },
+  {
+    name: 'executor: transient write retries are logged in metadata',
+    fn: async () => {
+      const oldSend = MetaAPIClient.prototype.sendWhatsAppMessage;
+      try {
+        let attempts = 0;
+        MetaAPIClient.prototype.sendWhatsAppMessage = async function patched() {
+          attempts += 1;
+          if (attempts === 1) {
+            const err = new Error('temporary');
+            err.code = 'ETIMEDOUT';
+            throw err;
+          }
+          return { messages: [{ id: 'wamid.retry' }] };
+        };
+
+        const result = await executeIntent({
+          action: 'post_whatsapp',
+          message: 'hello',
+          phone: '+15551234567',
+          phoneId: '123456',
+          allowReplay: true
+        }, {
+          getToken: (api) => (api === 'whatsapp' ? 'fake-token' : '')
+        });
+
+        assert.equal(result.success, true);
+        assert.equal(attempts, 2);
+        const logs = Array.isArray(result.metadata?.runtimeLogs) ? result.metadata.runtimeLogs.join('\n') : '';
+        assert.equal(logs.includes('retry 2/3'), true);
+      } finally {
+        MetaAPIClient.prototype.sendWhatsAppMessage = oldSend;
+      }
     }
   },
   {
