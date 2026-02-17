@@ -144,6 +144,7 @@ This includes API version, default IDs, and tokens. The CLI never prints full to
 - `tui`: agentic terminal dashboard (chat-style intent input + approvals + replay)
 - `gateway`: localhost web UI + API gateway for chat/agent workflows
 - `studio`: alias command to launch Social Studio web UI (`social studio`)
+- `integrations`: guided external integrations (WABA one-click style onboarding)
 - `ops`: morning operations workflow, alerts, approvals, scheduler, roles, knowledge sources
 - `hub`: package hub for connectors, playbooks, and agent skills
 - `accounts`: manage multiple profiles (multi-client)
@@ -229,6 +230,29 @@ Keyboard:
 - `a`: approve
 - `r`: reject
 - `d`: details
+
+## WABA One-Click Integration (Agency/Freelancer)
+
+Use the guided WABA flow:
+
+```bash
+social integrations connect waba --profile clientA
+```
+
+What it does:
+
+- Opens Meta WhatsApp setup docs
+- Collects token/business/WABA/phone-number inputs (auto-detect where possible)
+- Runs checks (token validity, scopes when app creds exist, phone access, optional test send)
+- Saves integration metadata per profile
+
+Useful commands:
+
+```bash
+social integrations status waba --profile clientA
+social integrations disconnect waba --profile clientA
+social integrations disconnect waba --profile clientA --clear-token
+```
 
 ## Quick Start
 

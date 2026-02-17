@@ -105,6 +105,7 @@ const hubCommands = require('../commands/hub');
 const tuiCommands = require('../commands/tui');
 const onboardCommands = require('../commands/onboard');
 const studioCommands = require('../commands/studio');
+const integrationsCommands = require('../commands/integrations');
 
 // Register command groups
 authCommands(program);
@@ -128,6 +129,7 @@ hubCommands(program);
 tuiCommands(program);
 onboardCommands(program);
 studioCommands(program);
+integrationsCommands(program);
 
 // Custom help
 program.on('--help', () => {
@@ -156,6 +158,7 @@ program.on('--help', () => {
   console.log(`  ${cmd('hatch')}                   ` + chalk.gray('# Alias of tui (terminal agent chat)'));
   console.log(`  ${cmd('gateway --open')}          ` + chalk.gray('# Social API Gateway web UI + API gateway'));
   console.log(`  ${cmd('studio')}                  ` + chalk.gray('# Social Studio (web UI command alias)'));
+  console.log(`  ${cmd('integrations connect waba')}  ` + chalk.gray('# Guided WABA integration setup + checks'));
   console.log(`  ${cmd('ops morning-run --all-workspaces --spend 320')}  ` + chalk.gray('# Morning agency ops checks + approvals'));
   console.log(`  ${cmd('hub search ops')}          ` + chalk.gray('# Search hub packages (connectors/playbooks/skills)'));
   console.log(`  ${cmd('hub trust show')}          ` + chalk.gray('# Inspect package trust policy and keys'));
