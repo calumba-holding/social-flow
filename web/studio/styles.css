@@ -378,6 +378,11 @@ button {
   font-size: 11px;
 }
 
+.ghost-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .sessions-list {
   list-style: none;
   margin: 0;

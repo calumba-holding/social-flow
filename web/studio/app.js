@@ -234,6 +234,16 @@ function nowTime() {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+const APPROVAL_ROLES = new Set(['operator', 'owner']);
+
+function currentWorkspaceRole() {
+  return String((state.team && state.team.role) || '').trim().toLowerCase();
+}
+
+function canResolveApprovals() {
+  return APPROVAL_ROLES.has(currentWorkspaceRole());
+}
+
 function escapeHtml(v) {
   return String(v ?? '')
     .replace(/&/g, '&amp;')
@@ -667,6 +677,12 @@ function renderTeamStatus() {
     const name = operator.name ? ` (${operator.name})` : '';
     els.teamStatusSummary.textContent = `Active operator: ${id}${name} | workspace role: ${role || '(unknown)'}`;
   }
+  if (els.opsApproveLowBtn) {
+    const allowed = canResolveApprovals();
+    els.opsApproveLowBtn.disabled = !allowed;
+    els.opsApproveLowBtn.title = allowed ? '' : 'Requires operator/owner role';
+  }
+  renderOpsApprovals(state.opsSnapshot?.approvals || []);
 }
 
 function renderTeamActivity() {
@@ -887,9 +903,11 @@ function opsActionButtons(kind, row) {
     return `<button class="ghost-btn small js-ops-ack" data-id="${escapeHtml(row.id)}">Ack</button>`;
   }
   if (kind === 'approval' && row.status === 'pending') {
+    const blocked = !canResolveApprovals();
+    const disabled = blocked ? 'disabled title="Requires operator/owner role"' : '';
     return [
-      `<button class="ghost-btn small js-ops-approve" data-id="${escapeHtml(row.id)}">Approve</button>`,
-      `<button class="ghost-btn small js-ops-reject" data-id="${escapeHtml(row.id)}">Reject</button>`
+      `<button class="ghost-btn small js-ops-approve" data-id="${escapeHtml(row.id)}" ${disabled}>Approve</button>`,
+      `<button class="ghost-btn small js-ops-reject" data-id="${escapeHtml(row.id)}" ${disabled}>Reject</button>`
     ].join(' ');
   }
   return `<span class="mono">${escapeHtml(row.status || '')}</span>`;
@@ -1189,10 +1207,13 @@ async function ackAlertById(id) {
 }
 
 async function resolveApprovalById(id, decision) {
-  const actor = String((state.team && state.team.operator && state.team.operator.id) || '').trim();
+  if (!canResolveApprovals()) {
+    appendMessage('system', `Role "${currentWorkspaceRole() || 'viewer'}" cannot resolve approvals. Use operator/owner.`);
+    return;
+  }
   const res = await api('/api/ops/approvals/resolve', {
     method: 'POST',
-    body: { workspace: state.workspace, id, decision, actor: actor || undefined }
+    body: { workspace: state.workspace, id, decision }
   });
   renderOpsSnapshot(res.snapshot);
 }
@@ -1211,6 +1232,10 @@ async function ackTokenAlerts() {
 }
 
 async function approveLowRisk() {
+  if (!canResolveApprovals()) {
+    appendMessage('system', `Role "${currentWorkspaceRole() || 'viewer'}" cannot approve low-risk actions.`);
+    return;
+  }
   const rows = (state.opsSnapshot?.approvals || []).filter((a) => a.status === 'pending' && String(a.risk || '').toLowerCase() === 'low');
   if (!rows.length) {
     appendMessage('system', 'No low-risk approvals pending.');
@@ -1660,8 +1685,16 @@ function wireEvents() {
       if (btn.classList.contains('js-ops-ack')) {
         await ackAlertById(id);
       } else if (btn.classList.contains('js-ops-approve')) {
+        if (!canResolveApprovals()) {
+          appendMessage('system', `Role "${currentWorkspaceRole() || 'viewer'}" cannot resolve approvals.`);
+          return;
+        }
         await resolveApprovalById(id, 'approve');
       } else if (btn.classList.contains('js-ops-reject')) {
+        if (!canResolveApprovals()) {
+          appendMessage('system', `Role "${currentWorkspaceRole() || 'viewer'}" cannot resolve approvals.`);
+          return;
+        }
         await resolveApprovalById(id, 'reject');
       } else if (btn.classList.contains('js-source-sync')) {
         await syncSources([id]);

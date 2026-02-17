@@ -625,6 +625,7 @@ In `Settings`, Social Studio now includes:
 - `Team Management` card for active operator + role assignment
 
 In `Ops`, Social Studio includes `Team Activity` (who did what, when, status).
+Approval actions in Studio are role-gated (`operator`/`owner` only). `viewer`/`analyst` can inspect but cannot approve/reject.
 
 Studio shortcuts:
 

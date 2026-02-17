@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createGatewayServer } = require('../lib/gateway/server');
+const opsStorage = require('../lib/ops/storage');
 
 function requestJson({ port, method, pathName, body, headers }) {
   return new Promise((resolve, reject) => {
@@ -299,9 +300,11 @@ module.exports = [
     fn: async () => {
       const oldHome = process.env.META_CLI_HOME;
       const oldSocialHome = process.env.SOCIAL_CLI_HOME;
+      const oldSocialUser = process.env.SOCIAL_USER;
       const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-gw-test-'));
       process.env.META_CLI_HOME = tempHome;
       process.env.SOCIAL_CLI_HOME = tempHome;
+      process.env.SOCIAL_USER = 'local-user';
 
       const server = createGatewayServer({ host: '127.0.0.1', port: 0 });
       try {
@@ -448,6 +451,27 @@ module.exports = [
         assert.equal(Array.isArray(approvals.data.approvals), true);
         assert.equal(approvals.data.approvals.length > 0, true);
 
+        const setViewerRole = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/team/role',
+          body: { workspace: 'default', user: 'local-user', role: 'viewer' }
+        });
+        assert.equal(setViewerRole.status, 200);
+        assert.equal(setViewerRole.data.ok, true);
+
+        const deniedResolve = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/approvals/resolve',
+          body: { workspace: 'default', id: approvals.data.approvals[0].id, decision: 'approve' }
+        });
+        assert.equal(deniedResolve.status, 400);
+        assert.equal(deniedResolve.data.ok, false);
+        assert.equal(String(deniedResolve.data.error || '').includes('Permission denied'), true);
+
+        opsStorage.setRole({ workspace: 'default', user: 'local-user', role: 'operator' });
+
         const ack = await requestJson({
           port: server.port,
           method: 'POST',
@@ -471,6 +495,8 @@ module.exports = [
         await server.stop();
         process.env.META_CLI_HOME = oldHome;
         process.env.SOCIAL_CLI_HOME = oldSocialHome;
+        if (oldSocialUser === undefined) delete process.env.SOCIAL_USER;
+        else process.env.SOCIAL_USER = oldSocialUser;
       }
     }
   }
