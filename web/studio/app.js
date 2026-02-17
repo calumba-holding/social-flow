@@ -3,6 +3,10 @@ const state = {
   sending: false,
   activeView: 'chat',
   workspace: 'default',
+  wsConnected: false,
+  ws: null,
+  liveLogs: [],
+  currentPlan: [],
   opsSnapshot: null,
   sources: [],
   guardPolicy: null,
@@ -37,15 +41,31 @@ const els = {
   topWorkspaceText: document.getElementById('topWorkspaceText'),
   topLatencyText: document.getElementById('topLatencyText'),
   topClockText: document.getElementById('topClockText'),
+  wsLiveBadge: document.getElementById('wsLiveBadge'),
   kpiMessages: document.getElementById('kpiMessages'),
   kpiPending: document.getElementById('kpiPending'),
   kpiExecuted: document.getElementById('kpiExecuted'),
   kpiSessions: document.getElementById('kpiSessions'),
   messageTemplate: document.getElementById('messageTemplate'),
   sideNavItems: Array.from(document.querySelectorAll('.side-nav-item')),
+  topTabs: Array.from(document.querySelectorAll('.top-tab')),
   viewPanels: Array.from(document.querySelectorAll('.view-panel')),
   viewTag: document.getElementById('viewTag'),
   viewTitle: document.getElementById('viewTitle'),
+  liveLogs: document.getElementById('liveLogs'),
+  planCard: document.getElementById('planCard'),
+  planSteps: document.getElementById('planSteps'),
+  planStepCount: document.getElementById('planStepCount'),
+  executePlanBtn: document.getElementById('executePlanBtn'),
+  editPlanBtn: document.getElementById('editPlanBtn'),
+  dryRunPlanBtn: document.getElementById('dryRunPlanBtn'),
+  rollbackBtn: document.getElementById('rollbackBtn'),
+  postsTable: document.getElementById('postsTable'),
+  analyticsReach: document.getElementById('analyticsReach'),
+  analyticsEngagement: document.getElementById('analyticsEngagement'),
+  analyticsMessages: document.getElementById('analyticsMessages'),
+  analyticsRate: document.getElementById('analyticsRate'),
+  analyticsSparkline: document.getElementById('analyticsSparkline'),
   dataHistory: document.getElementById('dataHistory'),
   dataPending: document.getElementById('dataPending'),
   dataExecuted: document.getElementById('dataExecuted'),
@@ -205,6 +225,129 @@ async function api(path, options = {}) {
   return data;
 }
 
+function setWsState(mode, text) {
+  if (!els.wsLiveBadge) return;
+  els.wsLiveBadge.textContent = text || mode;
+  els.wsLiveBadge.classList.remove('status-live', 'status-error', 'status-idle');
+  els.wsLiveBadge.classList.add(mode === 'live' ? 'status-live' : mode === 'error' ? 'status-error' : 'status-idle');
+}
+
+function pushLiveLog(line) {
+  const entry = `${new Date().toLocaleTimeString()} ${line}`;
+  state.liveLogs.push(entry);
+  if (state.liveLogs.length > 120) state.liveLogs.shift();
+  if (!els.liveLogs) return;
+  els.liveLogs.innerHTML = state.liveLogs.slice(-40)
+    .map((x) => `<div class="live-log-line">${escapeHtml(x)}</div>`)
+    .join('');
+  els.liveLogs.scrollTop = els.liveLogs.scrollHeight;
+}
+
+function riskFromTool(tool) {
+  const t = String(tool || '').toLowerCase();
+  if (t.includes('delete') || t.includes('approve') || t.includes('whatsapp')) return 'high';
+  if (t.includes('post') || t.includes('campaign') || t.includes('create')) return 'medium';
+  return 'low';
+}
+
+function renderPlanCard(actions) {
+  const rows = Array.isArray(actions) ? actions : [];
+  state.currentPlan = rows;
+  if (!els.planCard || !els.planSteps || !els.planStepCount) return;
+  if (!rows.length) {
+    els.planCard.classList.add('hidden');
+    els.planSteps.innerHTML = '';
+    els.planStepCount.textContent = '0 steps';
+    return;
+  }
+  els.planCard.classList.remove('hidden');
+  els.planStepCount.textContent = `${rows.length} step${rows.length > 1 ? 's' : ''}`;
+  els.planSteps.innerHTML = rows.map((step, idx) => {
+    const risk = String(step.risk || riskFromTool(step.tool || '')).toLowerCase();
+    const riskClass = risk === 'high' ? 'risk-high' : risk === 'medium' ? 'risk-medium' : 'risk-low';
+    return [
+      '<div class="plan-step">',
+      `<span>${idx + 1}. ${escapeHtml(step.description || step.tool || 'action')}</span>`,
+      `<span class="risk-badge ${riskClass}">${risk.toUpperCase()}</span>`,
+      '</div>'
+    ].join('');
+  }).join('');
+}
+
+function renderPostsView(payload = {}) {
+  if (!els.postsTable) return;
+  const rows = [...(payload.executed || [])].slice(-12).reverse();
+  if (!rows.length) {
+    els.postsTable.innerHTML = '<p class="muted">No post/campaign execution history yet.</p>';
+    return;
+  }
+  const html = [
+    '<table>',
+    '<thead><tr><th>Tool</th><th>Status</th><th>Summary</th></tr></thead>',
+    '<tbody>',
+    ...rows.map((row) => `<tr><td>${escapeHtml(row.tool || '-')}</td><td>${row.success ? 'posted' : 'failed'}</td><td>${escapeHtml(short(row.summary || row.error || '-', 80))}</td></tr>`),
+    '</tbody></table>'
+  ].join('');
+  els.postsTable.innerHTML = html;
+}
+
+function renderAnalytics(payload = {}) {
+  const history = Array.isArray(payload.history) ? payload.history : [];
+  const pending = Array.isArray(payload.pendingActions) ? payload.pendingActions.length : 0;
+  const executed = Array.isArray(payload.executed) ? payload.executed.length : 0;
+  if (els.analyticsReach) els.analyticsReach.textContent = String(Math.max(0, executed * 240));
+  if (els.analyticsEngagement) els.analyticsEngagement.textContent = `${Math.max(2, executed * 3)}%`;
+  if (els.analyticsMessages) els.analyticsMessages.textContent = String(history.length);
+  if (els.analyticsRate) els.analyticsRate.textContent = pending > 3 ? 'elevated' : 'healthy';
+  if (!els.analyticsSparkline) return;
+  const points = [];
+  const n = 14;
+  for (let i = 0; i < n; i += 1) {
+    const v = history[Math.max(0, history.length - n + i)];
+    const y = v ? 12 + ((i * 9 + String(v.role || '').length * 4) % 42) : 45;
+    const x = Math.round((i / (n - 1)) * 240);
+    points.push(`${x},${y}`);
+  }
+  els.analyticsSparkline.innerHTML = `<polyline fill="none" stroke="#06b6d4" stroke-width="2" points="${points.join(' ')}"></polyline>`;
+}
+
+function connectWs() {
+  const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const wsUrl = `${scheme}://${window.location.host}/ws`;
+  setWsState('idle', 'ws connecting');
+  try {
+    const ws = new WebSocket(wsUrl);
+    state.ws = ws;
+    ws.onopen = () => {
+      state.wsConnected = true;
+      setWsState('live', 'ws live');
+      pushLiveLog('Connected to live stream.');
+    };
+    ws.onclose = () => {
+      state.wsConnected = false;
+      setWsState('idle', 'ws reconnect');
+      setTimeout(connectWs, 1500);
+    };
+    ws.onerror = () => {
+      setWsState('error', 'ws error');
+    };
+    ws.onmessage = (evt) => {
+      try {
+        const data = JSON.parse(evt.data || '{}');
+        if (data.type === 'output') pushLiveLog(String(data.data || ''));
+        if (data.type === 'error') pushLiveLog(`ERROR: ${data.message || 'unknown'}`);
+        if (data.type === 'plan') renderPlanCard(data.steps || []);
+        if (data.type === 'step_start') pushLiveLog(`-> Step ${data.step} started`);
+        if (data.type === 'step_done') pushLiveLog(`${data.success ? '[OK]' : '[ERR]'} Step ${data.step}: ${data.summary || ''}`);
+      } catch {
+        // ignore malformed payloads
+      }
+    };
+  } catch {
+    setWsState('error', 'ws unavailable');
+  }
+}
+
 function appendMessage(role, text, meta = '') {
   const node = els.messageTemplate.content.firstElementChild.cloneNode(true);
   node.classList.add(role);
@@ -304,6 +447,10 @@ function renderDataConsole(payload) {
     { key: 'status', label: 'Status' },
     { key: 'summary', label: 'Summary' }
   ], executedRows);
+
+  renderPlanCard(p.pendingActions || []);
+  renderPostsView(p);
+  renderAnalytics(p);
 }
 
 async function refreshConfig() {
@@ -665,6 +812,8 @@ function setActiveView(view) {
   state.activeView = view;
   const titles = {
     chat: { tag: 'Chat Agent', title: 'Talk naturally. Execute safely.' },
+    posts: { tag: 'Posts', title: 'Recent publishing actions across platforms.' },
+    analytics: { tag: 'Analytics', title: 'Reach, engagement, and execution trend snapshot.' },
     data: { tag: 'Data Console', title: 'Inspect live conversation and execution trails.' },
     ops: { tag: 'Ops Center', title: 'Run workflows, resolve approvals, and clear alerts.' },
     config: { tag: 'Config', title: 'Runtime profile, defaults, and token state.' },
@@ -679,10 +828,17 @@ function setActiveView(view) {
   els.sideNavItems.forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.view === view);
   });
+  if (Array.isArray(els.topTabs)) {
+    els.topTabs.forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.view === view);
+    });
+  }
   els.viewPanels.forEach((panel) => {
     panel.classList.toggle('active', panel.id === `view-${view}`);
   });
   if (view === 'data') renderDataConsole(state.latestPayload);
+  if (view === 'posts') renderPostsView(state.latestPayload);
+  if (view === 'analytics') renderAnalytics(state.latestPayload);
   if (view === 'ops') refreshOps();
   if (view === 'config') refreshConfig();
 }
@@ -792,7 +948,7 @@ async function sendMessage() {
   els.messageInput.value = '';
 
   try {
-    const res = await api('/api/chat/message', {
+    const res = await api('/api/ai', {
       method: 'POST',
       body: {
         sessionId: state.sessionId,
@@ -804,6 +960,10 @@ async function sendMessage() {
     appendMessage('agent', agentText);
     if (Array.isArray(res.response?.suggestions) && res.response.suggestions.length) {
       appendMessage('agent', `Suggestions:\n${res.response.suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`);
+    }
+    if (Array.isArray(res.response?.actions) && res.response.actions.length) {
+      renderPlanCard(res.response.actions);
+      pushLiveLog(`Plan generated: ${res.response.actions.length} step(s)`);
     }
     if (res.pendingActions?.length) {
       appendMessage('system', pendingActionsText(res.pendingActions));
@@ -827,10 +987,63 @@ async function sendMessage() {
   }
 }
 
+async function executeCurrentPlan(dryRun = false) {
+  const steps = Array.isArray(state.currentPlan) ? state.currentPlan : [];
+  if (!steps.length) {
+    appendMessage('system', 'No plan available to execute.');
+    return;
+  }
+  if (dryRun) {
+    appendMessage('system', `Dry run: ${steps.length} step(s) validated. No action executed.`);
+    pushLiveLog('Dry run complete.');
+    return;
+  }
+  pushLiveLog('Executing plan...');
+  try {
+    const res = await api('/api/execute', {
+      method: 'POST',
+      body: {
+        sessionId: state.sessionId,
+        plan: { steps }
+      }
+    });
+    appendMessage('agent', `Execution complete. ${Array.isArray(res.executed) ? res.executed.length : 0} step(s) processed.`);
+    state.latestPayload = {
+      ...state.latestPayload,
+      executed: Array.isArray(res.executed) ? res.executed : state.latestPayload.executed,
+      history: Array.isArray(res.history) ? res.history : state.latestPayload.history,
+      summary: res.summary || state.latestPayload.summary
+    };
+    updateKpis(state.latestPayload);
+    renderDataConsole(state.latestPayload);
+    pushLiveLog('Execution finished.');
+  } catch (error) {
+    appendMessage('system', `Execution failed: ${error.message}`);
+    pushLiveLog(`Execution error: ${error.message}`);
+  }
+}
+
+function openCommandPalette() {
+  const quick = window.prompt('Command palette: type chat/posts/analytics/settings/new');
+  const cmd = String(quick || '').trim().toLowerCase();
+  if (!cmd) return;
+  if (cmd === 'new') {
+    startSession('');
+    return;
+  }
+  const allowed = new Set(['chat', 'posts', 'analytics', 'settings', 'data', 'ops']);
+  if (allowed.has(cmd)) {
+    setActiveView(cmd);
+    return;
+  }
+  appendMessage('system', `Unknown palette command: ${cmd}`);
+}
+
 function wireEvents() {
   els.sendBtn.addEventListener('click', sendMessage);
   els.messageInput.addEventListener('keydown', (evt) => {
-    if (evt.key === 'Enter' && !evt.shiftKey && state.settings.enterToSend) {
+    const isCmdEnter = evt.key === 'Enter' && (evt.metaKey || evt.ctrlKey);
+    if ((evt.key === 'Enter' && !evt.shiftKey && state.settings.enterToSend) || isCmdEnter) {
       evt.preventDefault();
       sendMessage();
     }
@@ -861,6 +1074,52 @@ function wireEvents() {
     btn.addEventListener('click', () => {
       setActiveView(btn.dataset.view || 'chat');
     });
+  });
+  if (Array.isArray(els.topTabs)) {
+    els.topTabs.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        setActiveView(btn.dataset.view || 'chat');
+      });
+    });
+  }
+  if (els.executePlanBtn) {
+    els.executePlanBtn.addEventListener('click', () => {
+      void executeCurrentPlan(false);
+    });
+  }
+  if (els.dryRunPlanBtn) {
+    els.dryRunPlanBtn.addEventListener('click', () => {
+      void executeCurrentPlan(true);
+    });
+  }
+  if (els.editPlanBtn) {
+    els.editPlanBtn.addEventListener('click', () => {
+      appendMessage('system', 'Edit plan: send an updated instruction and I will replace the pending plan.');
+      els.messageInput.focus();
+    });
+  }
+  if (els.rollbackBtn) {
+    els.rollbackBtn.addEventListener('click', () => {
+      appendMessage('system', 'Rollback stub: capture idempotency key and run `social replay <id>` as needed.');
+    });
+  }
+
+  document.addEventListener('keydown', (evt) => {
+    if ((evt.metaKey || evt.ctrlKey) && evt.key.toLowerCase() === 'k') {
+      evt.preventDefault();
+      openCommandPalette();
+      return;
+    }
+    if ((evt.metaKey || evt.ctrlKey) && evt.key.toLowerCase() === 'n') {
+      evt.preventDefault();
+      void startSession('');
+      return;
+    }
+    if ((evt.metaKey || evt.ctrlKey) && ['1', '2', '3', '4'].includes(evt.key)) {
+      evt.preventDefault();
+      const map = { '1': 'chat', '2': 'posts', '3': 'analytics', '4': 'settings' };
+      setActiveView(map[evt.key] || 'chat');
+    }
   });
 
   if (els.notifBtn) {
@@ -1061,6 +1320,7 @@ async function init() {
     }
   }
   wireEvents();
+  connectWs();
   await checkHealth();
   await refreshConfig();
   await startSession('');

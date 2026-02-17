@@ -1128,3 +1128,147 @@ body.compact-mode .composer {
     transform: scale(0.85);
   }
 }
+
+.top-tabs {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 14px;
+}
+
+.top-tab {
+  border: 1px solid var(--border);
+  background: rgba(17, 17, 17, 0.75);
+  color: var(--text-dim);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.top-tab.active,
+.top-tab:hover {
+  color: var(--text);
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.25) inset;
+}
+
+.status-dot {
+  border-radius: 999px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+}
+
+.status-live {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.status-error {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.6);
+}
+
+.status-idle {
+  color: var(--text-dim);
+}
+
+.glass {
+  background: rgba(17, 17, 17, 0.7);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.plan-card {
+  margin: 8px 0;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.plan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.plan-head h3 {
+  margin: 0;
+}
+
+.plan-steps {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.plan-step {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.plan-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.risk-badge {
+  border-radius: 999px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+}
+
+.risk-low {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.risk-medium {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.risk-high {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+.live-feed {
+  border-radius: 12px;
+  padding: 10px;
+  margin-top: 8px;
+}
+
+.live-logs {
+  max-height: 130px;
+  overflow: auto;
+  display: grid;
+  gap: 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+}
+
+.live-log-line {
+  opacity: 0.92;
+}
+
+.sparkline {
+  width: 100%;
+  height: 90px;
+  border-radius: 10px;
+  background: rgba(10, 10, 10, 0.5);
+}
+
+.muted {
+  color: var(--text-dim);
+}

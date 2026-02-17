@@ -4,6 +4,8 @@
 
 ```bash
 social gateway --open
+# or
+social studio
 ```
 
 ## Purpose
@@ -23,6 +25,8 @@ Supported workflow categories:
 UI sections:
 
 - `Chat`
+- `Posts`
+- `Analytics`
 - `Data Console`
 - `Config`
 - `Help`
@@ -31,10 +35,15 @@ UI sections:
 ## Endpoints
 
 - `GET /api/health`
+- `GET /api/status`
 - `GET /api/sessions`
 - `GET /api/config`
 - `POST /api/chat/start`
 - `POST /api/chat/message`
+- `POST /api/ai`
+- `POST /api/execute`
+- `POST /api/cancel`
+- `WS /ws`
 
 ## Session Model
 

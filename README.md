@@ -455,6 +455,8 @@ Run a local web app with a polished chat interface and backing API gateway:
 
 ```bash
 social gateway --open
+# or
+social studio
 ```
 
 Options:
@@ -479,15 +481,20 @@ Security defaults:
 Gateway endpoints:
 
 - `GET /api/health`
+- `GET /api/status`
 - `GET /api/sessions`
 - `GET /api/config`
 - `POST /api/chat/start`
 - `POST /api/chat/message`
+- `POST /api/ai` (alias of chat message route for Studio UI)
+- `POST /api/execute` (execute a provided plan)
+- `POST /api/cancel` (cancel stub response for compatibility)
+- `WS /ws` (live output/plan/step events)
 
 UI assets are served from `web/studio/`.
 
 The gateway covers both marketing flows and developer diagnostics (auth status, token debug, webhook subscriptions).
-It includes dedicated tabs for `Data Console`, `Config`, `Help`, and `Settings`.
+It includes dedicated tabs for `Chat`, `Posts`, `Analytics`, `Data Console`, `Config`, `Help`, and `Settings`.
 
 ## Ops Control Plane (`social ops`)
 

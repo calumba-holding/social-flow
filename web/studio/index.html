@@ -24,7 +24,14 @@
         <span id="topApiBadge" class="badge badge-ok">API LIVE</span>
         <span id="topPendingBadge" class="badge badge-warn">0 PENDING</span>
       </div>
+      <nav class="top-tabs">
+        <button class="top-tab active" data-view="chat">Chat</button>
+        <button class="top-tab" data-view="posts">Posts</button>
+        <button class="top-tab" data-view="analytics">Analytics</button>
+        <button class="top-tab" data-view="settings">Settings</button>
+      </nav>
       <div class="topbar-live mono">
+        <span id="wsLiveBadge" class="status-dot status-idle">ws idle</span>
         <span>ws=<span id="topWorkspaceText">default</span></span>
         <span>lat=<span id="topLatencyText">-</span></span>
         <span>now=<span id="topClockText">--:--:--</span></span>
@@ -55,6 +62,8 @@
       <section class="panel nav-panel">
         <p class="section-label">Main</p>
         <button class="side-nav-item active" data-view="chat">Chat Agent</button>
+        <button class="side-nav-item" data-view="posts">Posts</button>
+        <button class="side-nav-item" data-view="analytics">Analytics</button>
         <button class="side-nav-item" data-view="data">Data Console</button>
         <button class="side-nav-item" data-view="ops">Ops Center</button>
         <button class="side-nav-item" data-view="config">Config</button>
@@ -103,13 +112,66 @@
           <span>channel: chat.agent.default</span>
           <span>guard: evidence + approvals</span>
         </div>
+        <article id="planCard" class="plan-card glass hidden">
+          <div class="plan-head">
+            <h3>Proposed Plan</h3>
+            <span id="planStepCount" class="tag">0 steps</span>
+          </div>
+          <div id="planSteps" class="plan-steps"></div>
+          <div class="plan-actions">
+            <button id="executePlanBtn" class="ghost-btn small">Execute</button>
+            <button id="editPlanBtn" class="ghost-btn small">Edit</button>
+            <button id="dryRunPlanBtn" class="ghost-btn small">Dry Run</button>
+            <button id="rollbackBtn" class="ghost-btn small">Rollback</button>
+          </div>
+        </article>
         <section id="messageList" class="message-list"></section>
+        <article class="live-feed glass">
+          <div class="panel-head">
+            <p class="section-label">Live Logs</p>
+          </div>
+          <div id="liveLogs" class="live-logs"></div>
+        </article>
         <footer class="composer">
           <textarea id="messageInput" rows="2" placeholder="Type a message..."></textarea>
           <div class="composer-actions">
             <button id="sendBtn" class="send-btn">Send</button>
           </div>
         </footer>
+      </section>
+
+      <section id="view-posts" class="view-panel">
+        <div class="data-grid">
+          <article class="data-card">
+            <h3>Recent Posts</h3>
+            <div id="postsTable" class="table-wrap"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-analytics" class="view-panel">
+        <div class="ops-kpis">
+          <article class="ops-kpi-card">
+            <p class="ops-kpi-label">Reach</p>
+            <p id="analyticsReach" class="ops-kpi-value">0</p>
+          </article>
+          <article class="ops-kpi-card">
+            <p class="ops-kpi-label">Engagement</p>
+            <p id="analyticsEngagement" class="ops-kpi-value">0</p>
+          </article>
+          <article class="ops-kpi-card">
+            <p class="ops-kpi-label">Messages Sent</p>
+            <p id="analyticsMessages" class="ops-kpi-value">0</p>
+          </article>
+          <article class="ops-kpi-card">
+            <p class="ops-kpi-label">Rate Usage</p>
+            <p id="analyticsRate" class="ops-kpi-value">-</p>
+          </article>
+        </div>
+        <article class="data-card">
+          <h3>Last 7 Events</h3>
+          <svg id="analyticsSparkline" viewBox="0 0 240 60" preserveAspectRatio="none" class="sparkline"></svg>
+        </article>
       </section>
 
       <section id="view-data" class="view-panel">
