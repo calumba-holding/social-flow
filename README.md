@@ -200,6 +200,14 @@ social ops activity list --workspace clientA --limit 50
 social ops activity list --workspace clientA --actor bob
 ```
 
+Invite-based onboarding:
+
+```bash
+social ops invite create --workspace clientA --role operator --expires-in 72
+social ops invite list --workspace clientA --open
+social ops invite accept <TOKEN> --user alice
+```
+
 Generate a one-file onboarding/runbook handoff for your team:
 
 ```bash
@@ -623,6 +631,10 @@ Gateway endpoints:
 - `POST /api/ops/handoff/pack` (generate handoff/runbook/access-matrix/incident-playbook files)
 - `GET /api/ops/handoff/file?path=<absolute-path>` (download generated handoff file)
 - `GET /api/team/roles?workspace=<ws>` (list users + effective role for workspace)
+- `GET /api/team/invites?workspace=<ws>&open=1` (list workspace invites)
+- `POST /api/team/invites` (create invite)
+- `POST /api/team/invites/revoke` (revoke invite)
+- `POST /api/team/invites/accept` (accept invite token)
 - `GET /api/team/activity/export?format=json|csv&workspace=<ws>&actor=<id>&from=<ISO>&to=<ISO>&limit=<n>`
 - `WS /ws` (live output/plan/step events)
 
@@ -642,6 +654,7 @@ Team Activity can be exported from Studio as `JSON` or `CSV`.
 `Ops -> Handoff Pack` can generate full onboarding files for agencies.
 Studio now shows download + copy-path actions for generated handoff files.
 `Settings -> Team Management` now includes an editable role table (with refresh + inline save).
+`Settings -> Team Management` also supports invite creation + revoke + copy accept command.
 
 Studio shortcuts:
 

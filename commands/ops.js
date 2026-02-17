@@ -803,6 +803,96 @@ function registerOpsCommands(program) {
       );
     });
 
+  const invite = ops.command('invite').description('Workspace invite flow for non-technical onboarding');
+
+  invite
+    .command('create')
+    .description('Create an invite token for a workspace role')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .requiredOption('--role <role>', 'viewer|analyst|operator|owner')
+    .option('--expires-in <hours>', 'Hours until invite expires', '72')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      const actor = rbac.currentUser();
+      rbac.assertCan({ workspace: ws, action: 'admin', user: actor });
+      const role = rbac.normalizeRole(options.role);
+      if (!rbac.roleChoices().includes(role)) {
+        console.error(chalk.red(`\nX Invalid role. Use one of: ${rbac.roleChoices().join(', ')}\n`));
+        process.exit(1);
+      }
+      const expiresIn = parseNumber(options.expiresIn, 72);
+      const created = storage.createInvite({ workspace: ws, role, actor, expiresInHours: expiresIn });
+      if (options.json) {
+        console.log(JSON.stringify({ ok: true, invite: created }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Invite created for ${ws}`));
+      console.log(chalk.gray(`Token: ${created.token}`));
+      console.log(chalk.gray(`Accept: social ops invite accept ${created.token} --user <user-id>\n`));
+    });
+
+  invite
+    .command('list')
+    .description('List invites for a workspace')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--open', 'Only active/unexpired invites', false)
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      rbac.assertCan({ workspace: ws, action: 'read' });
+      const rows = storage.listInvites({ workspace: ws, includeExpired: !options.open });
+      const now = Date.now();
+      const filtered = options.open
+        ? rows.filter((x) => x.status === 'active' && (!x.expiresAt || Date.parse(x.expiresAt) > now))
+        : rows;
+      if (options.json) {
+        console.log(JSON.stringify({ workspace: ws, invites: filtered }, null, 2));
+        return;
+      }
+      printRows(`Invites (${ws})`, filtered.map((x) => `${x.id} | ${x.role} | ${x.status} | expires=${x.expiresAt}`));
+    });
+
+  invite
+    .command('revoke')
+    .description('Revoke an invite by id or token')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--id <id>', 'Invite id')
+    .option('--token <token>', 'Invite token')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      const actor = rbac.currentUser();
+      rbac.assertCan({ workspace: ws, action: 'admin', user: actor });
+      const id = String(options.id || '').trim();
+      const token = String(options.token || '').trim();
+      if (!id && !token) {
+        console.error(chalk.red('\nX Provide --id or --token\n'));
+        process.exit(1);
+      }
+      const revoked = storage.revokeInvite({ id, token, actor });
+      if (options.json) {
+        console.log(JSON.stringify({ ok: true, invite: revoked }, null, 2));
+        return;
+      }
+      console.log(chalk.yellow(`\nInvite revoked: ${revoked.id}\n`));
+    });
+
+  invite
+    .command('accept <token>')
+    .description('Accept an invite token and assign role to user')
+    .requiredOption('--user <id>', 'User id to map role to')
+    .option('--json', 'Output JSON')
+    .action((token, options) => {
+      const accepted = storage.acceptInvite({ token, user: options.user });
+      if (options.json) {
+        console.log(JSON.stringify({ ok: true, invite: accepted }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nInvite accepted: ${accepted.id}`));
+      console.log(chalk.gray(`Workspace: ${accepted.workspace} | role: ${accepted.role} | user: ${accepted.acceptedBy}\n`));
+    });
+
   const handoff = ops
     .command('handoff')
     .description('Generate a one-file team onboarding and runbook document for a workspace')

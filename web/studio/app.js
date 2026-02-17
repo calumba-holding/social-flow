@@ -19,7 +19,8 @@ const state = {
     operator: null,
     role: '',
     activity: [],
-    roles: []
+    roles: [],
+    invites: []
   },
   opsSnapshot: null,
   sources: [],
@@ -237,7 +238,13 @@ const els = {
   teamStatusRefreshBtn: document.getElementById('teamStatusRefreshBtn'),
   teamStatusSummary: document.getElementById('teamStatusSummary'),
   teamRolesRefreshBtn: document.getElementById('teamRolesRefreshBtn'),
-  teamRolesTable: document.getElementById('teamRolesTable')
+  teamRolesTable: document.getElementById('teamRolesTable'),
+  teamInviteRoleInput: document.getElementById('teamInviteRoleInput'),
+  teamInviteExpiresInput: document.getElementById('teamInviteExpiresInput'),
+  teamInviteCreateBtn: document.getElementById('teamInviteCreateBtn'),
+  teamInviteRefreshBtn: document.getElementById('teamInviteRefreshBtn'),
+  teamInviteSummary: document.getElementById('teamInviteSummary'),
+  teamInvitesTable: document.getElementById('teamInvitesTable')
 };
 
 function nowTime() {
@@ -741,6 +748,38 @@ function renderTeamRoles() {
   `;
 }
 
+function renderTeamInvites() {
+  if (!els.teamInvitesTable) return;
+  const rows = Array.isArray(state.team.invites) ? state.team.invites : [];
+  if (els.teamInviteSummary) {
+    els.teamInviteSummary.textContent = rows.length
+      ? `Loaded ${rows.length} invite(s).`
+      : 'No invites for this workspace.';
+  }
+  if (!rows.length) {
+    els.teamInvitesTable.innerHTML = '<p class="empty-note">No invites yet.</p>';
+    return;
+  }
+  const body = rows.map((x) => `
+    <tr>
+      <td>${escapeHtml(x.role || '')}</td>
+      <td>${escapeHtml(x.status || '')}</td>
+      <td>${escapeHtml(fmtTime(x.expiresAt))}</td>
+      <td class="mono">${escapeHtml(short(x.token || '', 24))}</td>
+      <td>
+        <button class="ghost-btn small js-team-invite-copy" data-token="${escapeHtml(x.token || '')}">Copy Accept</button>
+        ${String(x.status || '') === 'active' ? `<button class="ghost-btn small js-team-invite-revoke" data-id="${escapeHtml(x.id || '')}">Revoke</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+  els.teamInvitesTable.innerHTML = `
+    <table class="mini-table">
+      <thead><tr><th>Role</th><th>Status</th><th>Expires</th><th>Token</th><th>Actions</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  `;
+}
+
 async function refreshTeamStatus() {
   try {
     const res = await api('/api/team/status');
@@ -813,6 +852,29 @@ async function refreshTeamRoles() {
   } catch (error) {
     appendMessage('system', `Team roles error: ${error.message}`);
   }
+}
+
+async function refreshTeamInvites() {
+  try {
+    const ws = encodeURIComponent(state.workspace || 'default');
+    const res = await api(`/api/team/invites?workspace=${ws}`);
+    state.team.invites = Array.isArray(res.invites) ? res.invites : [];
+    renderTeamInvites();
+  } catch (error) {
+    appendMessage('system', `Team invites error: ${error.message}`);
+  }
+}
+
+async function createTeamInviteFromUi() {
+  const role = String((els.teamInviteRoleInput && els.teamInviteRoleInput.value) || 'viewer').trim();
+  const expiresInHours = Number((els.teamInviteExpiresInput && els.teamInviteExpiresInput.value) || 72);
+  const res = await api('/api/team/invites', {
+    method: 'POST',
+    body: { workspace: state.workspace, role, expiresInHours }
+  });
+  appendMessage('system', `Invite created (${role}).`);
+  state.team.invites = Array.isArray(res.invites) ? res.invites : state.team.invites;
+  renderTeamInvites();
 }
 
 async function refreshTeamActivity() {
@@ -1393,6 +1455,7 @@ function setActiveView(view) {
   if (view === 'ops') refreshTeamActivity();
   if (view === 'config') refreshConfig();
   if (view === 'settings') refreshTeamStatus();
+  if (view === 'settings') refreshTeamInvites();
 }
 
 function renderExecuted(executed) {
@@ -1841,6 +1904,25 @@ function wireEvents() {
         appendMessage('system', `Role updated: ${user} => ${role}`);
         await refreshTeamRoles();
         await refreshTeamStatus();
+      } else if (btn.classList.contains('js-team-invite-copy')) {
+        const token = String(btn.getAttribute('data-token') || '').trim();
+        if (!token) return;
+        const cmd = `social ops invite accept ${token} --user <user-id>`;
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cmd);
+          appendMessage('system', 'Invite accept command copied.');
+        } else {
+          appendMessage('system', cmd);
+        }
+      } else if (btn.classList.contains('js-team-invite-revoke')) {
+        const id = String(btn.getAttribute('data-id') || '').trim();
+        if (!id) return;
+        await api('/api/team/invites/revoke', {
+          method: 'POST',
+          body: { workspace: state.workspace, id }
+        });
+        appendMessage('system', `Invite revoked: ${id}`);
+        await refreshTeamInvites();
       }
     } catch (error) {
       appendMessage('system', `Ops error: ${error.message}`);
@@ -1951,6 +2033,16 @@ function wireEvents() {
       void refreshTeamRoles();
     });
   }
+  if (els.teamInviteCreateBtn) {
+    els.teamInviteCreateBtn.addEventListener('click', () => {
+      void createTeamInviteFromUi();
+    });
+  }
+  if (els.teamInviteRefreshBtn) {
+    els.teamInviteRefreshBtn.addEventListener('click', () => {
+      void refreshTeamInvites();
+    });
+  }
   if (els.teamActivityRefreshBtn) {
     els.teamActivityRefreshBtn.addEventListener('click', () => {
       void refreshTeamActivity();
@@ -2001,6 +2093,7 @@ async function init() {
   await refreshRegionPolicyStatus();
   await runRegionPreflight();
   await refreshTeamStatus();
+  await refreshTeamInvites();
   await refreshTeamActivity();
   setActiveView('chat');
 }

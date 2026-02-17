@@ -537,6 +537,39 @@ module.exports = [
         assert.equal(Array.isArray(rolesList.data.roles), true);
         assert.equal(rolesList.data.roles.some((x) => x.user === 'local-user' && x.role === 'viewer'), true);
 
+        opsStorage.setRole({ workspace: 'default', user: 'local-user', role: 'owner' });
+        const inviteCreate = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/team/invites',
+          body: { workspace: 'default', role: 'operator', expiresInHours: 72 }
+        });
+        assert.equal(inviteCreate.status, 200);
+        assert.equal(inviteCreate.data.ok, true);
+        assert.equal(typeof inviteCreate.data.invite.token, 'string');
+
+        const inviteList = await requestJson({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/team/invites?workspace=default'
+        });
+        assert.equal(inviteList.status, 200);
+        assert.equal(inviteList.data.ok, true);
+        assert.equal(Array.isArray(inviteList.data.invites), true);
+        assert.equal(inviteList.data.invites.length > 0, true);
+
+        const inviteAccept = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/team/invites/accept',
+          body: { token: inviteCreate.data.invite.token, user: 'invite-user' }
+        });
+        assert.equal(inviteAccept.status, 200);
+        assert.equal(inviteAccept.data.ok, true);
+        assert.equal(inviteAccept.data.invite.status, 'accepted');
+        assert.equal(opsStorage.getRole({ workspace: 'default', user: 'invite-user' }), 'operator');
+        opsStorage.setRole({ workspace: 'default', user: 'local-user', role: 'viewer' });
+
         const deniedResolve = await requestJson({
           port: server.port,
           method: 'POST',
