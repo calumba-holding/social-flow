@@ -622,6 +622,7 @@ Gateway endpoints:
 - `POST /api/cancel` (cancel stub response for compatibility)
 - `POST /api/ops/handoff/pack` (generate handoff/runbook/access-matrix/incident-playbook files)
 - `GET /api/ops/handoff/file?path=<absolute-path>` (download generated handoff file)
+- `GET /api/team/roles?workspace=<ws>` (list users + effective role for workspace)
 - `GET /api/team/activity/export?format=json|csv&workspace=<ws>&actor=<id>&from=<ISO>&to=<ISO>&limit=<n>`
 - `WS /ws` (live output/plan/step events)
 
@@ -640,6 +641,7 @@ Approval actions in Studio are role-gated (`operator`/`owner` only). `viewer`/`a
 Team Activity can be exported from Studio as `JSON` or `CSV`.
 `Ops -> Handoff Pack` can generate full onboarding files for agencies.
 Studio now shows download + copy-path actions for generated handoff files.
+`Settings -> Team Management` now includes an editable role table (with refresh + inline save).
 
 Studio shortcuts:
 

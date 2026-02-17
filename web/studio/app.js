@@ -18,7 +18,8 @@ const state = {
   team: {
     operator: null,
     role: '',
-    activity: []
+    activity: [],
+    roles: []
   },
   opsSnapshot: null,
   sources: [],
@@ -234,7 +235,9 @@ const els = {
   teamRoleInput: document.getElementById('teamRoleInput'),
   teamRoleSaveBtn: document.getElementById('teamRoleSaveBtn'),
   teamStatusRefreshBtn: document.getElementById('teamStatusRefreshBtn'),
-  teamStatusSummary: document.getElementById('teamStatusSummary')
+  teamStatusSummary: document.getElementById('teamStatusSummary'),
+  teamRolesRefreshBtn: document.getElementById('teamRolesRefreshBtn'),
+  teamRolesTable: document.getElementById('teamRolesTable')
 };
 
 function nowTime() {
@@ -709,12 +712,42 @@ function renderTeamActivity() {
   els.teamActivityTable.innerHTML = html;
 }
 
+function renderTeamRoles() {
+  if (!els.teamRolesTable) return;
+  const rows = Array.isArray(state.team.roles) ? state.team.roles : [];
+  if (!rows.length) {
+    els.teamRolesTable.innerHTML = '<p class="empty-note">No roles found for this workspace.</p>';
+    return;
+  }
+  const body = rows.map((x) => `
+    <tr>
+      <td>${escapeHtml(x.user || '')}</td>
+      <td>${escapeHtml(x.scope || '')}</td>
+      <td>
+        <select class="setting-select js-team-role-row-select" data-user="${escapeHtml(x.user || '')}">
+          ${['viewer', 'analyst', 'operator', 'owner'].map((r) => `<option value="${r}" ${String(x.role || '') === r ? 'selected' : ''}>${r}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <button class="ghost-btn small js-team-role-row-save" data-user="${escapeHtml(x.user || '')}">Save</button>
+      </td>
+    </tr>
+  `).join('');
+  els.teamRolesTable.innerHTML = `
+    <table class="mini-table">
+      <thead><tr><th>User</th><th>Scope</th><th>Role</th><th>Action</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  `;
+}
+
 async function refreshTeamStatus() {
   try {
     const res = await api('/api/team/status');
     state.team.operator = res.operator || null;
     state.team.role = String(res.role || '');
     renderTeamStatus();
+    await refreshTeamRoles();
   } catch (error) {
     appendMessage('system', `Team status error: ${error.message}`);
   }
@@ -765,8 +798,20 @@ async function setTeamRoleFromUi() {
     });
     appendMessage('system', `Role updated: ${user} => ${role}`);
     await refreshTeamStatus();
+    await refreshTeamRoles();
   } catch (error) {
     appendMessage('system', `Set role failed: ${error.message}`);
+  }
+}
+
+async function refreshTeamRoles() {
+  try {
+    const ws = encodeURIComponent(state.workspace || 'default');
+    const res = await api(`/api/team/roles?workspace=${ws}`);
+    state.team.roles = Array.isArray(res.roles) ? res.roles : [];
+    renderTeamRoles();
+  } catch (error) {
+    appendMessage('system', `Team roles error: ${error.message}`);
   }
 }
 
@@ -1783,6 +1828,19 @@ function wireEvents() {
         document.body.appendChild(a);
         a.click();
         a.remove();
+      } else if (btn.classList.contains('js-team-role-row-save')) {
+        const user = String(btn.getAttribute('data-user') || '').trim();
+        if (!user) return;
+        const select = document.querySelector(`.js-team-role-row-select[data-user="${CSS.escape(user)}"]`);
+        const role = String((select && select.value) || '').trim();
+        if (!role) return;
+        await api('/api/team/role', {
+          method: 'POST',
+          body: { workspace: state.workspace, user, role }
+        });
+        appendMessage('system', `Role updated: ${user} => ${role}`);
+        await refreshTeamRoles();
+        await refreshTeamStatus();
       }
     } catch (error) {
       appendMessage('system', `Ops error: ${error.message}`);
@@ -1886,6 +1944,11 @@ function wireEvents() {
   if (els.teamStatusRefreshBtn) {
     els.teamStatusRefreshBtn.addEventListener('click', () => {
       void refreshTeamStatus();
+    });
+  }
+  if (els.teamRolesRefreshBtn) {
+    els.teamRolesRefreshBtn.addEventListener('click', () => {
+      void refreshTeamRoles();
     });
   }
   if (els.teamActivityRefreshBtn) {

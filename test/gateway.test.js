@@ -527,6 +527,16 @@ module.exports = [
         assert.equal(setViewerRole.status, 200);
         assert.equal(setViewerRole.data.ok, true);
 
+        const rolesList = await requestJson({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/team/roles?workspace=default'
+        });
+        assert.equal(rolesList.status, 200);
+        assert.equal(rolesList.data.ok, true);
+        assert.equal(Array.isArray(rolesList.data.roles), true);
+        assert.equal(rolesList.data.roles.some((x) => x.user === 'local-user' && x.role === 'viewer'), true);
+
         const deniedResolve = await requestJson({
           port: server.port,
           method: 'POST',
