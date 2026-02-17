@@ -165,6 +165,8 @@ const els = {
   opsLeadsTable: document.getElementById('opsLeadsTable'),
   opsOutcomesTable: document.getElementById('opsOutcomesTable'),
   teamActivityRefreshBtn: document.getElementById('teamActivityRefreshBtn'),
+  teamActivityExportJsonBtn: document.getElementById('teamActivityExportJsonBtn'),
+  teamActivityExportCsvBtn: document.getElementById('teamActivityExportCsvBtn'),
   teamActivityActorInput: document.getElementById('teamActivityActorInput'),
   teamActivityTable: document.getElementById('teamActivityTable'),
   opsGuardRefreshBtn: document.getElementById('opsGuardRefreshBtn'),
@@ -773,6 +775,23 @@ async function refreshTeamActivity() {
   } catch (error) {
     appendMessage('system', `Team activity error: ${error.message}`);
   }
+}
+
+function exportTeamActivity(format = 'json') {
+  const actor = String((els.teamActivityActorInput && els.teamActivityActorInput.value) || '').trim();
+  const params = new URLSearchParams();
+  params.set('workspace', state.workspace || 'default');
+  params.set('format', format === 'csv' ? 'csv' : 'json');
+  params.set('limit', '500');
+  if (actor) params.set('actor', actor);
+
+  const a = document.createElement('a');
+  a.href = `/api/team/activity/export?${params.toString()}`;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 function appendMessage(role, text, meta = '') {
@@ -1806,6 +1825,16 @@ function wireEvents() {
   if (els.teamActivityRefreshBtn) {
     els.teamActivityRefreshBtn.addEventListener('click', () => {
       void refreshTeamActivity();
+    });
+  }
+  if (els.teamActivityExportJsonBtn) {
+    els.teamActivityExportJsonBtn.addEventListener('click', () => {
+      exportTeamActivity('json');
+    });
+  }
+  if (els.teamActivityExportCsvBtn) {
+    els.teamActivityExportCsvBtn.addEventListener('click', () => {
+      exportTeamActivity('csv');
     });
   }
 }

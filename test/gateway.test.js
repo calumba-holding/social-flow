@@ -37,6 +37,31 @@ function requestJson({ port, method, pathName, body, headers }) {
   });
 }
 
+function requestRaw({ port, method, pathName, body, headers }) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: pathName,
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(headers || {})
+      }
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        resolve({ status: res.statusCode, headers: res.headers, raw });
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
 module.exports = [
   {
     name: 'gateway health endpoint returns ok',
@@ -450,6 +475,24 @@ module.exports = [
         assert.equal(approvals.data.ok, true);
         assert.equal(Array.isArray(approvals.data.approvals), true);
         assert.equal(approvals.data.approvals.length > 0, true);
+
+        const exportJson = await requestJson({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/team/activity/export?workspace=default&format=json&limit=10'
+        });
+        assert.equal(exportJson.status, 200);
+        assert.equal(exportJson.data.ok, true);
+        assert.equal(Array.isArray(exportJson.data.activity), true);
+
+        const exportCsv = await requestRaw({
+          port: server.port,
+          method: 'GET',
+          pathName: '/api/team/activity/export?workspace=default&format=csv&limit=10'
+        });
+        assert.equal(exportCsv.status, 200);
+        assert.equal(String(exportCsv.headers['content-type'] || '').includes('text/csv'), true);
+        assert.equal(exportCsv.raw.includes('createdAt,workspace,actor,action,status,summary,meta'), true);
 
         const setViewerRole = await requestJson({
           port: server.port,

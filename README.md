@@ -612,6 +612,7 @@ Gateway endpoints:
 - `POST /api/ai` (alias of chat message route for Studio UI)
 - `POST /api/execute` (execute a provided plan)
 - `POST /api/cancel` (cancel stub response for compatibility)
+- `GET /api/team/activity/export?format=json|csv&workspace=<ws>&actor=<id>&from=<ISO>&to=<ISO>&limit=<n>`
 - `WS /ws` (live output/plan/step events)
 
 UI assets are served from `web/studio/`.
@@ -626,6 +627,7 @@ In `Settings`, Social Studio now includes:
 
 In `Ops`, Social Studio includes `Team Activity` (who did what, when, status).
 Approval actions in Studio are role-gated (`operator`/`owner` only). `viewer`/`analyst` can inspect but cannot approve/reject.
+Team Activity can be exported from Studio as `JSON` or `CSV`.
 
 Studio shortcuts:
 
