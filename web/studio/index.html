@@ -364,6 +364,28 @@
               </div>
               <div id="teamActivityTable" class="table-wrap"></div>
             </article>
+
+            <article class="data-card">
+              <div class="ops-card-head">
+                <h3>Handoff Pack</h3>
+                <button id="handoffPackGenerateBtn" class="ghost-btn small">Generate Pack</button>
+              </div>
+              <div class="source-controls">
+                <label class="guard-field">
+                  <span>Template</span>
+                  <select id="handoffPackTemplateInput">
+                    <option value="agency" selected>agency</option>
+                    <option value="simple">simple</option>
+                    <option value="enterprise">enterprise</option>
+                  </select>
+                </label>
+                <label class="guard-field">
+                  <span>Output Directory</span>
+                  <input id="handoffPackOutDirInput" type="text" placeholder="handoff-clientA" />
+                </label>
+              </div>
+              <pre id="handoffPackOutput" class="config-dump">No pack generated yet.</pre>
+            </article>
           </div>
         </div>
       </section>

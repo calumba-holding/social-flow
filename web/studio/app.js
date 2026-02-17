@@ -169,6 +169,10 @@ const els = {
   teamActivityExportCsvBtn: document.getElementById('teamActivityExportCsvBtn'),
   teamActivityActorInput: document.getElementById('teamActivityActorInput'),
   teamActivityTable: document.getElementById('teamActivityTable'),
+  handoffPackTemplateInput: document.getElementById('handoffPackTemplateInput'),
+  handoffPackOutDirInput: document.getElementById('handoffPackOutDirInput'),
+  handoffPackGenerateBtn: document.getElementById('handoffPackGenerateBtn'),
+  handoffPackOutput: document.getElementById('handoffPackOutput'),
   opsGuardRefreshBtn: document.getElementById('opsGuardRefreshBtn'),
   opsGuardModeSelect: document.getElementById('opsGuardModeSelect'),
   opsGuardModeSaveBtn: document.getElementById('opsGuardModeSaveBtn'),
@@ -792,6 +796,24 @@ function exportTeamActivity(format = 'json') {
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+async function generateHandoffPackFromUi() {
+  const template = String((els.handoffPackTemplateInput && els.handoffPackTemplateInput.value) || 'agency').trim().toLowerCase();
+  const outDirRaw = String((els.handoffPackOutDirInput && els.handoffPackOutDirInput.value) || '').trim();
+  const outDir = outDirRaw || `handoff-${state.workspace || 'default'}`;
+  const res = await api('/api/ops/handoff/pack', {
+    method: 'POST',
+    body: {
+      workspace: state.workspace || 'default',
+      template,
+      outDir
+    }
+  });
+  if (els.handoffPackOutput) {
+    els.handoffPackOutput.textContent = JSON.stringify(res, null, 2);
+  }
+  appendMessage('system', `Handoff pack generated: ${res.outDir}`);
 }
 
 function appendMessage(role, text, meta = '') {
@@ -1835,6 +1857,11 @@ function wireEvents() {
   if (els.teamActivityExportCsvBtn) {
     els.teamActivityExportCsvBtn.addEventListener('click', () => {
       exportTeamActivity('csv');
+    });
+  }
+  if (els.handoffPackGenerateBtn) {
+    els.handoffPackGenerateBtn.addEventListener('click', () => {
+      void generateHandoffPackFromUi();
     });
   }
 }

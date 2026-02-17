@@ -494,6 +494,21 @@ module.exports = [
         assert.equal(String(exportCsv.headers['content-type'] || '').includes('text/csv'), true);
         assert.equal(exportCsv.raw.includes('createdAt,workspace,actor,action,status,summary,meta'), true);
 
+        const handoffOutDir = path.join(tempHome, 'handoff-pack-default');
+        const handoffPack = await requestJson({
+          port: server.port,
+          method: 'POST',
+          pathName: '/api/ops/handoff/pack',
+          body: { workspace: 'default', template: 'enterprise', outDir: handoffOutDir }
+        });
+        assert.equal(handoffPack.status, 200);
+        assert.equal(handoffPack.data.ok, true);
+        assert.equal(handoffPack.data.template, 'enterprise');
+        assert.equal(fs.existsSync(handoffPack.data.files.handoff), true);
+        assert.equal(fs.existsSync(handoffPack.data.files.runbook), true);
+        assert.equal(fs.existsSync(handoffPack.data.files.accessMatrix), true);
+        assert.equal(fs.existsSync(handoffPack.data.files.incidentPlaybook), true);
+
         const setViewerRole = await requestJson({
           port: server.port,
           method: 'POST',
