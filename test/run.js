@@ -12,6 +12,7 @@ async function run() {
     './chat.test.js',
     './onboarding-ready.test.js',
     './gateway.test.js',
+    './policy.test.js',
     './ops.test.js',
     './hub.test.js'
   ];

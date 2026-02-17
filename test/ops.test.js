@@ -274,5 +274,37 @@ module.exports = [
       assert.equal(passedSlack.source.status, 'ready');
       assert.equal(passedSlack.source.itemCount > 0, true);
     })
+  },
+  {
+    name: 'ops workspace templates and role presets apply successfully',
+    fn: () => withTempHome(() => {
+      const ws = storage.ensureWorkspace('clientA');
+      const templates = storage.listWorkspaceTemplates();
+      assert.equal(templates.some((x) => x.id === 'enterprise'), true);
+
+      const applied = storage.applyWorkspaceTemplate({
+        workspace: ws,
+        template: 'enterprise',
+        actor: 'owner_1'
+      });
+      assert.equal(applied.template, 'enterprise');
+      assert.equal(applied.guardPolicy.mode, 'approval');
+      assert.equal(Boolean(applied.schedule.id), true);
+
+      const rolePreset = storage.applyRolePreset({
+        workspace: ws,
+        preset: 'core',
+        actor: 'owner_1',
+        users: {
+          owner: 'owner_1',
+          admin: 'admin_1',
+          operator: 'operator_1,operator_2',
+          viewer: 'viewer_1'
+        }
+      });
+      assert.equal(rolePreset.assigned.length, 5);
+      assert.equal(storage.getRole({ workspace: ws, user: 'admin_1' }), 'admin');
+      assert.equal(storage.getRole({ workspace: ws, user: 'operator_2' }), 'operator');
+    })
   }
 ];

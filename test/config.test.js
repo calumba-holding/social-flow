@@ -77,5 +77,23 @@ module.exports = [
       cfg.clearOnboardingComplete();
       assert.equal(cfg.hasCompletedOnboarding(), false);
     })
+  },
+  {
+    name: 'region config stores use-case and policy profile',
+    fn: () => withTempHome(() => {
+      const { ConfigManager } = configSingleton;
+      const cfg = new ConfigManager();
+      const next = cfg.setRegionConfig({
+        country: 'us',
+        timezone: 'America/New_York',
+        regulatoryMode: 'strict',
+        useCase: 'commerce',
+        policyProfile: 'support'
+      });
+      assert.equal(next.country, 'US');
+      assert.equal(next.regulatoryMode, 'strict');
+      assert.equal(next.useCase, 'commerce');
+      assert.equal(next.policyProfile, 'support');
+    })
   }
 ];

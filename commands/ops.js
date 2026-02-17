@@ -337,6 +337,81 @@ function registerOpsCommands(program) {
       console.log(chalk.gray(`Morning schedule: ${schedule.id} (${schedule.runAt}, repeat=${schedule.repeat})\n`));
     });
 
+  const workspace = ops.command('workspace').description('Workspace templates and role presets');
+
+  workspace
+    .command('templates')
+    .description('List available workspace templates')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const templates = storage.listWorkspaceTemplates();
+      if (options.json) {
+        console.log(JSON.stringify({ templates }, null, 2));
+        return;
+      }
+      printRows('Workspace Templates', templates.map((x) => `${x.id} | ${x.notes}`));
+    });
+
+  workspace
+    .command('apply-template')
+    .description('Apply workspace template and ensure default schedule')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--template <id>', 'Template id: agency_default|growth|enterprise', 'agency_default')
+    .option('--run-at <iso>', 'Run time for default morning schedule')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      const actor = rbac.currentUser();
+      rbac.assertCan({ workspace: ws, action: 'admin', user: actor });
+      const out = storage.applyWorkspaceTemplate({
+        workspace: ws,
+        template: options.template,
+        actor,
+        runAt: options.runAt
+      });
+      if (options.json) {
+        console.log(JSON.stringify({ ok: true, ...out }, null, 2));
+        return;
+      }
+      console.log(chalk.green(`\nOK Applied template ${out.template} for ${ws}`));
+      console.log(chalk.gray(`Schedule: ${out.schedule.id} (${out.schedule.runAt})\n`));
+    });
+
+  workspace
+    .command('apply-role-preset')
+    .description('Assign role preset to user ids (comma separated)')
+    .option('--workspace <name>', 'Workspace/profile name')
+    .option('--preset <name>', 'Preset: core|lean', 'core')
+    .option('--owner <csv>', 'Owner user ids')
+    .option('--admin <csv>', 'Admin user ids')
+    .option('--operator <csv>', 'Operator user ids')
+    .option('--viewer <csv>', 'Viewer user ids')
+    .option('--json', 'Output JSON')
+    .action((options) => {
+      const ws = workspaceFrom(options);
+      const actor = rbac.currentUser();
+      rbac.assertCan({ workspace: ws, action: 'admin', user: actor });
+      const out = storage.applyRolePreset({
+        workspace: ws,
+        preset: options.preset,
+        actor,
+        users: {
+          owner: options.owner,
+          admin: options.admin,
+          operator: options.operator,
+          viewer: options.viewer
+        }
+      });
+      if (options.json) {
+        console.log(JSON.stringify({ ok: true, ...out }, null, 2));
+        return;
+      }
+      printRows(
+        `Role preset applied (${ws})`,
+        out.assigned.map((x) => `${x.user} => ${x.role}`)
+      );
+    });
+
   ops
     .command('morning-run')
     .description('Run high-value morning checks (token health, spend guardrails, follow-up queue)')
