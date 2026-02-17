@@ -17,8 +17,8 @@ function printSessions() {
   console.log('');
 }
 
-function hasAnyToken() {
-  return config.hasToken('facebook') || config.hasToken('instagram') || config.hasToken('whatsapp');
+function needsOnboarding() {
+  return !config.hasCompletedOnboarding();
 }
 
 function runSubprocess(args) {
@@ -41,7 +41,7 @@ function registerChatCommands(program) {
     .command('chat')
     .description('Legacy alias to hatch (agentic terminal chat)')
     .action(async () => {
-      if (!hasAnyToken()) {
+      if (needsOnboarding()) {
         console.log(chalk.yellow('\nOnboarding required before chat.\n'));
         await runSubprocess(['onboard']);
         return;

@@ -141,6 +141,22 @@ module.exports = [
     }
   },
   {
+    name: 'chat agent maps "do I have a Facebook page" to query.pages',
+    fn: async () => {
+      const ctx = new ConversationContext();
+      const agent = new AutonomousAgent({
+        context: ctx,
+        config: { getDefaultApi: () => 'facebook' },
+        options: {}
+      });
+      const res = await agent.process('do i have a facebook page?');
+      assert.equal(res.actions.length, 1);
+      assert.equal(res.actions[0].tool, 'query.pages');
+      assert.equal(res.needsInput, true);
+      assert.equal(ctx.hasPendingActions(), true);
+    }
+  },
+  {
     name: 'chat agent asks for token when debug token is missing',
     fn: async () => {
       const ctx = new ConversationContext();

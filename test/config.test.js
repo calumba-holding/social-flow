@@ -61,6 +61,21 @@ module.exports = [
       assert.equal(cfg.getToken('facebook'), 'EAABLEGACY');
       assert.equal(cfg.getDefaultMarketingAdAccountId(), 'act_999');
     })
+  },
+  {
+    name: 'onboarding completion status is persisted per profile',
+    fn: () => withTempHome(() => {
+      const { ConfigManager } = configSingleton;
+      const cfg = new ConfigManager();
+      assert.equal(cfg.hasCompletedOnboarding(), false);
+
+      const state = cfg.markOnboardingComplete({ version: '0.2.13' });
+      assert.equal(state.completed, true);
+      assert.equal(state.version, '0.2.13');
+      assert.equal(cfg.hasCompletedOnboarding(), true);
+
+      cfg.clearOnboardingComplete();
+      assert.equal(cfg.hasCompletedOnboarding(), false);
+    })
   }
 ];
-

@@ -2,6 +2,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 const inquirer = require('inquirer');
 const chalk = require('chalk');
+const config = require('../lib/config');
+const packageJson = require('../package.json');
 
 function runSubprocess(args) {
   return new Promise((resolve, reject) => {
@@ -73,6 +75,7 @@ function registerOnboardCommand(program) {
 
       console.log(chalk.cyan('\n[3/3] Running doctor checks\n'));
       await runSubprocess(['doctor']);
+      config.markOnboardingComplete({ version: packageJson.version });
 
       console.log(chalk.green('\nOnboarding complete. Recommended next step: social doctor\n'));
 

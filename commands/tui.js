@@ -18,8 +18,8 @@ function runSubprocess(command, args, env) {
   });
 }
 
-function hasAnyToken() {
-  return config.hasToken('facebook') || config.hasToken('instagram') || config.hasToken('whatsapp');
+function needsOnboarding() {
+  return !config.hasCompletedOnboarding();
 }
 
 function registerTuiCommand(program) {
@@ -47,7 +47,7 @@ function registerTuiCommand(program) {
       };
 
       try {
-        if (!opts.skipOnboardCheck && !hasAnyToken()) {
+        if (!opts.skipOnboardCheck && needsOnboarding()) {
           console.log(chalk.yellow('\nOnboarding required before Hatch UI. Starting onboarding...\n'));
           await runSubprocess(process.execPath, [binPath, '--no-banner', 'onboard'], env);
           return;

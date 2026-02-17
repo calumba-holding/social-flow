@@ -34,6 +34,14 @@ module.exports = [
     }
   },
   {
+    name: 'parser: heuristicParse detects "do I have a Facebook page"',
+    fn: () => {
+      const intent = heuristicParse('do i have a facebook page?');
+      assert.equal(intent.action, 'query_pages');
+      assert.equal(intent.api, 'facebook');
+    }
+  },
+  {
     name: 'parser: heuristicParse detects whatsapp phone-number listing intent',
     fn: () => {
       const intent = heuristicParse('do i have any mobile number listed for business id 1234567890');

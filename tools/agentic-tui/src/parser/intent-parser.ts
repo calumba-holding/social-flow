@@ -50,8 +50,15 @@ function inferAction(input: string): ParsedIntent["action"] {
   if (/\bshow\b.*\bconfig\b|\bconfig\b/.test(s)) return "config";
   if (/\bshow\b.*\blogs\b|\blist\b.*\blogs\b/.test(s)) return "logs";
   if (/^\s*replay\b/.test(s)) return "replay";
-  if (/\b(get|show|fetch)\b.*\b(profile|facebook profile)\b/.test(s)) return "get_profile";
-  if (/\b(create|publish)\b.*\bpost\b/.test(s)) return "create_post";
+  if (
+    /\b(get|show|fetch)\b.*\b(profile|facebook profile)\b/.test(s) ||
+    /\b(who am i|whoami|my profile|me)\b/.test(s)
+  ) return "get_profile";
+  if (
+    /\b(create|publish)\b.*\bpost\b/.test(s) ||
+    (/\bpost\b/.test(s) && (/\bfacebook\b/.test(s) || /\bpage\b/.test(s)))
+  ) return "create_post";
+  if (/\b(do i have|have (a|any)|show|list)\b.*\b(facebook\s+)?pages?\b/.test(s)) return "get_profile";
   if (/\b(list|show|fetch)\b.*\bads?\b/.test(s)) return "list_ads";
   if (/\b(status|health|ping|uptime)\b/.test(s)) return "get_status";
   return "unknown";
