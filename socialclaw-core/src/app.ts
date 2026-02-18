@@ -9,6 +9,7 @@ import { registerClientRoutes } from './api/routes/clients';
 import { registerCredentialRoutes } from './api/routes/credentials';
 import { registerWorkflowRoutes } from './api/routes/workflows';
 import { registerExecutionRoutes } from './api/routes/executions';
+import { registerReleaseRoutes } from './api/routes/releases';
 
 export function buildApp() {
   const app = Fastify({ logger: false });
@@ -30,6 +31,7 @@ export function buildApp() {
     registerCredentialRoutes(privateRoutes);
     registerWorkflowRoutes(privateRoutes);
     registerExecutionRoutes(privateRoutes);
+    registerReleaseRoutes(privateRoutes);
   });
 
   return app;

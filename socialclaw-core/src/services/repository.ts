@@ -311,3 +311,66 @@ export async function getLatestIntegrationVerification(input: {
   );
   return out.rows[0] || null;
 }
+
+export async function createReleaseSignoff(input: {
+  tenantId: string;
+  clientId: string;
+  releaseTag: string;
+  reportSha256: string;
+  reportPath: string;
+  status: 'approved' | 'rejected';
+  notes?: string;
+  approvedBy: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const out = await query<{
+    id: string;
+    release_tag: string;
+    report_sha256: string;
+    report_path: string;
+    status: 'approved' | 'rejected';
+    approved_at: string;
+  }>(
+    `INSERT INTO release_signoffs(
+      tenant_id, client_id, release_tag, report_sha256, report_path, status, notes, approved_by, metadata
+     ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
+     RETURNING id, release_tag, report_sha256, report_path, status, approved_at`,
+    [
+      input.tenantId,
+      input.clientId,
+      input.releaseTag,
+      input.reportSha256,
+      input.reportPath,
+      input.status,
+      String(input.notes || ''),
+      input.approvedBy,
+      JSON.stringify(input.metadata || {})
+    ]
+  );
+  return out.rows[0];
+}
+
+export async function getLatestReleaseSignoff(input: {
+  tenantId: string;
+  clientId: string;
+}) {
+  const out = await query<{
+    id: string;
+    release_tag: string;
+    report_sha256: string;
+    report_path: string;
+    status: 'approved' | 'rejected';
+    notes: string;
+    approved_by: string;
+    approved_at: string;
+    metadata: Record<string, unknown>;
+  }>(
+    `SELECT id, release_tag, report_sha256, report_path, status, notes, approved_by, approved_at, metadata
+     FROM release_signoffs
+     WHERE tenant_id=$1 AND client_id=$2
+     ORDER BY approved_at DESC
+     LIMIT 1`,
+    [input.tenantId, input.clientId]
+  );
+  return out.rows[0] || null;
+}

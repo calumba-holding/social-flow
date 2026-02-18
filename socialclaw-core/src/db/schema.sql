@@ -115,6 +115,20 @@ CREATE TABLE IF NOT EXISTS integration_verifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS release_signoffs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  release_tag TEXT NOT NULL,
+  report_sha256 TEXT NOT NULL,
+  report_path TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('approved', 'rejected')) DEFAULT 'approved',
+  notes TEXT NOT NULL DEFAULT '',
+  approved_by UUID REFERENCES users(id),
+  approved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
 CREATE TABLE IF NOT EXISTS audit_trails (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -147,4 +161,5 @@ CREATE INDEX IF NOT EXISTS idx_wf_def_tenant_client ON workflow_definitions(tena
 CREATE INDEX IF NOT EXISTS idx_wf_exec_tenant_status ON workflow_executions(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_wf_action_idem_tenant_exec ON workflow_action_idempotency(tenant_id, execution_id);
 CREATE INDEX IF NOT EXISTS idx_verifications_tenant_client ON integration_verifications(tenant_id, client_id, provider, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_release_signoff_tenant_client ON release_signoffs(tenant_id, client_id, approved_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_tenant_created ON audit_trails(tenant_id, created_at DESC);

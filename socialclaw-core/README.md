@@ -72,3 +72,10 @@ Required environment variables:
 - `SOCIALCLAW_CLIENT_ID`
 - `SOCIALCLAW_WA_TEST_RECIPIENT`
 - `SOCIALCLAW_EMAIL_TEST_RECIPIENT`
+
+## Release Signoff Lock
+After generating reports, store immutable evidence hash in DB:
+
+- `POST /v1/releases/signoff`
+  - body: `clientId`, `releaseTag`, `reportSha256`, `reportPath`, optional `notes`
+- `GET /v1/releases/signoff/latest?clientId=<id>`
