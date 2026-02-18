@@ -18,6 +18,7 @@ async function execute(job: Job): Promise<void> {
   const payload = job.data as {
     executionId: string;
     tenantId: string;
+    clientId: string;
     workflowId: string;
     workflowVersion: number;
     triggerType: string;
@@ -47,6 +48,8 @@ async function execute(job: Job): Promise<void> {
 
   const out = await runDeterministicWorkflow({
     workflow,
+    tenantId: payload.tenantId,
+    clientId: payload.clientId,
     triggerType: payload.triggerType,
     triggerPayload: payload.triggerPayload || {},
     executionId: payload.executionId,

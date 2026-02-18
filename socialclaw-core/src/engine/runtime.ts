@@ -1,8 +1,10 @@
-import { createHash } from 'crypto';
 import { WorkflowDefinition, WorkflowNode } from '../types/domain';
+import { executeAction } from './actions';
 
 interface RuntimeInput {
   workflow: WorkflowDefinition;
+  tenantId: string;
+  clientId: string;
   triggerType: string;
   triggerPayload: Record<string, unknown>;
   executionId: string;
@@ -35,40 +37,8 @@ function evalCondition(node: WorkflowNode, triggerPayload: Record<string, unknow
   return false;
 }
 
-function stableId(input: string): string {
-  return createHash('sha1').update(input).digest('hex').slice(0, 16);
-}
-
-function executeAction(node: WorkflowNode, executionId: string, triggerPayload: Record<string, unknown>) {
-  const cfg = node.config || {};
-  const action = String(cfg['action'] || '').trim().toLowerCase();
-  if (!action) throw new Error(`invalid_action:missing_action_for_node:${node.id}`);
-
-  if (action === 'whatsapp.send_template') {
-    const to = String(cfg['to'] || readPath(triggerPayload, 'lead.phone') || '').trim();
-    const template = String(cfg['template'] || '').trim();
-    if (!to || !template) throw new Error(`invalid_action_payload:${node.id}:whatsapp.send_template`);
-    return { action, delivered: true, providerMessageId: stableId(`${executionId}:${node.id}:${to}:${template}`) };
-  }
-
-  if (action === 'email.send') {
-    const to = String(cfg['to'] || readPath(triggerPayload, 'lead.email') || '').trim();
-    const template = String(cfg['template'] || '').trim();
-    if (!to || !template) throw new Error(`invalid_action_payload:${node.id}:email.send`);
-    return { action, delivered: true, providerMessageId: stableId(`${executionId}:${node.id}:${to}:${template}`) };
-  }
-
-  if (action === 'crm.update_status') {
-    const status = String(cfg['status'] || '').trim();
-    if (!status) throw new Error(`invalid_action_payload:${node.id}:crm.update_status`);
-    return { action, updated: true, status };
-  }
-
-  throw new Error(`unsupported_action:${action}`);
-}
-
 export async function runDeterministicWorkflow(input: RuntimeInput, hooks: RuntimeHooks): Promise<{ actionsExecuted: number }> {
-  const { workflow, triggerType, triggerPayload, executionId, maxActions } = input;
+  const { workflow, tenantId, clientId, triggerType, triggerPayload, executionId, maxActions } = input;
   let actionsExecuted = 0;
 
   for (const node of workflow.nodes) {
@@ -105,7 +75,17 @@ export async function runDeterministicWorkflow(input: RuntimeInput, hooks: Runti
     if (node.type === 'action') {
       actionsExecuted += 1;
       if (actionsExecuted > maxActions) throw new Error('execution_cap_exceeded');
-      const result = executeAction(node, executionId, triggerPayload);
+      const cfg = node.config || {};
+      const result = await executeAction({
+        nodeId: node.id,
+        action: String(cfg['action'] || ''),
+        config: cfg
+      }, {
+        executionId,
+        tenantId,
+        clientId,
+        triggerPayload
+      });
       await hooks.onNodeEvent('info', 'node.action.executed', { nodeId: node.id, ...result });
       continue;
     }

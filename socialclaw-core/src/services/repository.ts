@@ -36,6 +36,26 @@ export async function saveCredential(input: {
   return out.rows[0];
 }
 
+export async function getCredential(input: {
+  tenantId: string;
+  clientId: string;
+  provider: string;
+  credentialType: string;
+}) {
+  const out = await query<{
+    id: string;
+    encrypted_secret: string;
+    key_version: number;
+    rotated_at: string | null;
+  }>(
+    `SELECT id, encrypted_secret, key_version, rotated_at
+     FROM client_credentials
+     WHERE tenant_id=$1 AND client_id=$2 AND provider=$3 AND credential_type=$4`,
+    [input.tenantId, input.clientId, input.provider, input.credentialType]
+  );
+  return out.rows[0] || null;
+}
+
 export async function saveWorkflowDraft(workflow: WorkflowDefinition) {
   const def = await query<{ id: string }>(
     `INSERT INTO workflow_definitions(tenant_id, client_id, name, status)

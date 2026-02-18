@@ -48,3 +48,7 @@
 4. Apply SQL from `src/db/schema.sql`.
 5. Run API: `npm run dev`
 6. Run worker: `npm run worker:dev`
+
+## Release Readiness
+- Track go-live requirements in `RC_CHECKLIST.md`.
+- Keep `EXECUTION_DRY_RUN=true` until staging validation is complete.

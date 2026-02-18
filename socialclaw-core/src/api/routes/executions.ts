@@ -46,6 +46,7 @@ export function registerExecutionRoutes(app: FastifyInstance) {
     await enqueueWorkflowExecution({
       executionId,
       tenantId: req.user!.tenantId,
+      clientId: body.clientId,
       workflowId: params.workflowId,
       workflowVersion,
       triggerType: body.triggerType,

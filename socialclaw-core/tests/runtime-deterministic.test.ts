@@ -24,6 +24,8 @@ describe('deterministic runtime', () => {
     const events: string[] = [];
     const out = await runDeterministicWorkflow({
       workflow,
+      tenantId: 't_1',
+      clientId: 'c_1',
       triggerType: 'lead_inactivity_48h',
       triggerPayload: { noReply: true },
       executionId: 'exec_1',
@@ -53,6 +55,8 @@ describe('deterministic runtime', () => {
 
     await expect(runDeterministicWorkflow({
       workflow,
+      tenantId: 't_1',
+      clientId: 'c_1',
       triggerType: 'lead_inactivity_48h',
       triggerPayload: {},
       executionId: 'exec_2',

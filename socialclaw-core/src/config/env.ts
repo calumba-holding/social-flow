@@ -9,6 +9,11 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
   JWT_SECRET: z.string().min(8),
+  ENCRYPTION_KEY: z.string().min(16).default('dev-only-change-me'),
+  EXECUTION_DRY_RUN: z
+    .string()
+    .optional()
+    .transform((v) => (String(v || 'true').toLowerCase() !== 'false')),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   SENTRY_DSN: z.string().optional()

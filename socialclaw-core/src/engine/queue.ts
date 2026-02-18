@@ -17,6 +17,7 @@ export const workflowQueue = new Queue('workflow-execution', {
 export interface WorkflowJobInput {
   executionId: string;
   tenantId: string;
+  clientId: string;
   workflowId: string;
   workflowVersion: number;
   triggerType: string;
