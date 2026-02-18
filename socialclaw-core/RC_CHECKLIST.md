@@ -33,6 +33,7 @@
 
 ## Integrations
 - [x] WhatsApp action adapter scaffold with dry-run safety
+- [x] Verification evidence logging and status contract endpoint
 - [ ] Live WhatsApp send validation in staging with test number
 - [ ] Production email provider adapter (SES/SendGrid)
 - [ ] CRM adapter integration against selected provider

@@ -1,7 +1,13 @@
 import { createHash } from 'crypto';
 import { env } from '../config/env';
 import { decryptSecret } from '../security/crypto';
-import { completeActionIdempotency, getCredential, reserveActionIdempotency } from '../services/repository';
+import {
+  completeActionIdempotency,
+  getCredential,
+  getLatestIntegrationVerification,
+  reserveActionIdempotency
+} from '../services/repository';
+import { evaluateWhatsAppContract } from './integration-contract';
 
 export interface ActionContext {
   executionId: string;
@@ -49,8 +55,30 @@ async function whatsappAdapter(input: ActionInput, ctx: ActionContext) {
     credentialType: 'access_token'
   });
   if (!tokenRow) throw new Error('credential_missing:whatsapp.access_token');
+  const phoneCredential = await getCredential({
+    tenantId: ctx.tenantId,
+    clientId: ctx.clientId,
+    provider: 'whatsapp',
+    credentialType: 'phone_number_id'
+  });
+  if (!phoneCredential) throw new Error('credential_missing:whatsapp.phone_number_id');
+  const latestVerification = await getLatestIntegrationVerification({
+    tenantId: ctx.tenantId,
+    clientId: ctx.clientId,
+    provider: 'whatsapp',
+    checkType: 'test_send_live'
+  });
+  const contract = evaluateWhatsAppContract({
+    hasAccessToken: true,
+    hasPhoneNumberId: true,
+    latestLiveVerificationOk: latestVerification?.status === 'passed',
+    latestLiveVerificationAt: latestVerification?.created_at || '',
+    maxAgeDays: env.WHATSAPP_VERIFICATION_MAX_AGE_DAYS
+  });
+  if (!contract.ready) throw new Error('integration_not_ready:whatsapp_verification_required');
+
   const token = decryptSecret(tokenRow.encrypted_secret);
-  const phoneNumberId = String(input.config['phoneNumberId'] || '').trim();
+  const phoneNumberId = String(input.config['phoneNumberId'] || decryptSecret(phoneCredential.encrypted_secret) || '').trim();
   if (!phoneNumberId) throw new Error(`invalid_action_payload:${input.nodeId}:missing_phoneNumberId`);
 
   const res = await fetch(`https://graph.facebook.com/v20.0/${encodeURIComponent(phoneNumberId)}/messages`, {

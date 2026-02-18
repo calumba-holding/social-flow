@@ -102,6 +102,19 @@ CREATE TABLE IF NOT EXISTS workflow_action_idempotency (
   UNIQUE (tenant_id, action_key)
 );
 
+CREATE TABLE IF NOT EXISTS integration_verifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  check_type TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('passed', 'failed', 'partial')),
+  checks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+  initiated_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS audit_trails (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -133,4 +146,5 @@ CREATE INDEX IF NOT EXISTS idx_clients_tenant ON clients(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_wf_def_tenant_client ON workflow_definitions(tenant_id, client_id);
 CREATE INDEX IF NOT EXISTS idx_wf_exec_tenant_status ON workflow_executions(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_wf_action_idem_tenant_exec ON workflow_action_idempotency(tenant_id, execution_id);
+CREATE INDEX IF NOT EXISTS idx_verifications_tenant_client ON integration_verifications(tenant_id, client_id, provider, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_tenant_created ON audit_trails(tenant_id, created_at DESC);

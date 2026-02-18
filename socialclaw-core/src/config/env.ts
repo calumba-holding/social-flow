@@ -14,6 +14,11 @@ const schema = z.object({
     .string()
     .optional()
     .transform((v) => (String(v || 'true').toLowerCase() !== 'false')),
+  VERIFY_ALLOW_LIVE: z
+    .string()
+    .optional()
+    .transform((v) => (String(v || 'false').toLowerCase() === 'true')),
+  WHATSAPP_VERIFICATION_MAX_AGE_DAYS: z.coerce.number().default(30),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   SENTRY_DSN: z.string().optional()

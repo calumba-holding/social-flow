@@ -260,3 +260,54 @@ export async function completeActionIdempotency(input: {
     ]
   );
 }
+
+export async function appendIntegrationVerification(input: {
+  tenantId: string;
+  clientId: string;
+  provider: string;
+  checkType: string;
+  status: 'passed' | 'failed' | 'partial';
+  checks: Array<Record<string, unknown>>;
+  evidence: Record<string, unknown>;
+  initiatedBy: string;
+}) {
+  const out = await query<{ id: string; created_at: string }>(
+    `INSERT INTO integration_verifications(tenant_id, client_id, provider, check_type, status, checks, evidence, initiated_by)
+     VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)
+     RETURNING id, created_at`,
+    [
+      input.tenantId,
+      input.clientId,
+      input.provider,
+      input.checkType,
+      input.status,
+      JSON.stringify(input.checks || []),
+      JSON.stringify(input.evidence || {}),
+      input.initiatedBy
+    ]
+  );
+  return out.rows[0];
+}
+
+export async function getLatestIntegrationVerification(input: {
+  tenantId: string;
+  clientId: string;
+  provider: string;
+  checkType: string;
+}) {
+  const out = await query<{
+    id: string;
+    status: 'passed' | 'failed' | 'partial';
+    checks: Array<Record<string, unknown>>;
+    evidence: Record<string, unknown>;
+    created_at: string;
+  }>(
+    `SELECT id, status, checks, evidence, created_at
+     FROM integration_verifications
+     WHERE tenant_id=$1 AND client_id=$2 AND provider=$3 AND check_type=$4
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [input.tenantId, input.clientId, input.provider, input.checkType]
+  );
+  return out.rows[0] || null;
+}
