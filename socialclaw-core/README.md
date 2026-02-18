@@ -91,3 +91,7 @@ CLI helper command:
 - `npm run release:signoff`
 - Required env: `SOCIALCLAW_API_BASE`, `SOCIALCLAW_BEARER`, `SOCIALCLAW_CLIENT_ID`, `SOCIALCLAW_RELEASE_TAG`
 - Optional env: `SOCIALCLAW_REPORT_PATH` (defaults to latest report in `reports/`)
+
+Release guard command (fails if signoff/tag/hash mismatch):
+- `npm run release:check-signoff`
+- Required env: `SOCIALCLAW_API_BASE`, `SOCIALCLAW_BEARER`, `SOCIALCLAW_CLIENT_ID`, `SOCIALCLAW_RELEASE_TAG`
