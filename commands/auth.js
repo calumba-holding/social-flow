@@ -52,6 +52,45 @@ function tokenHelpUrl(api, apiVersion) {
   return `https://developers.facebook.com/tools/explorer/?version=${encodeURIComponent(apiVersion)}`;
 }
 
+async function confirmBrowserReady({ api, url, canOpen }) {
+  // Explicit gate helps users who are logged out and must first login/register in browser.
+  // We don't move to token prompt until they confirm completion.
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const answers = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'ready',
+        message: `Did you finish browser ${api} login/registration and open Graph Explorer token screen?`,
+        default: true
+      }
+    ]);
+
+    if (answers.ready) return;
+
+    console.log(chalk.yellow('\nComplete this in browser first:'));
+    console.log(chalk.gray('  1) Login with your Facebook account'));
+    console.log(chalk.gray('  2) If prompted, register as Developer'));
+    console.log(chalk.gray('  3) Generate/copy access token'));
+    if (url) console.log(chalk.cyan(`  URL: ${url}`));
+    console.log('');
+
+    const again = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'reopen',
+        message: 'Re-open token page in browser now?',
+        default: true
+      }
+    ]);
+
+    if (again.reopen && canOpen && url) {
+      // eslint-disable-next-line no-await-in-loop
+      await openUrl(url);
+    }
+  }
+}
+
 function registerAuthCommands(program) {
   const auth = program.command('auth').description('Authentication and token management');
 
@@ -147,6 +186,12 @@ function registerAuthCommands(program) {
             console.log(chalk.gray(`\nToken page (${api}):`));
             console.log(chalk.cyan(`  ${url}\n`));
           }
+
+          await confirmBrowserReady({
+            api,
+            url,
+            canOpen: options.open !== false
+          });
         }
 
         const answers = await inquirer.prompt([
