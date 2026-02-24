@@ -24,5 +24,8 @@
     "core",
     "executors",
     "utils"
+  ],
+  "allowed_js_files": [
+    "bin/social.js"
   ]
 }

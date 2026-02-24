@@ -20,7 +20,8 @@ function loadBaseline() {
     maxJsFiles: Number(parsed.max_js_files),
     scanRoots: Array.isArray(parsed.scan_roots) ? parsed.scan_roots : [],
     excludePrefixes: Array.isArray(parsed.exclude_prefixes) ? parsed.exclude_prefixes : [],
-    disallowedJsRoots: Array.isArray(parsed.disallowed_js_roots) ? parsed.disallowed_js_roots : []
+    disallowedJsRoots: Array.isArray(parsed.disallowed_js_roots) ? parsed.disallowed_js_roots : [],
+    allowedJsFiles: Array.isArray(parsed.allowed_js_files) ? parsed.allowed_js_files.map(normalizeRel) : []
   };
 }
 
@@ -70,21 +71,23 @@ function main() {
   const baseline = loadBaseline();
   const files = collectFiles(baseline.scanRoots, baseline.excludePrefixes);
   const jsFiles = files.filter((file) => file.endsWith('.js'));
+  const countedJsFiles = jsFiles.filter((file) => !baseline.allowedJsFiles.includes(file));
   const disallowedJs = jsFiles.filter((file) =>
+    !baseline.allowedJsFiles.includes(file) &&
     baseline.disallowedJsRoots.some((root) => file.startsWith(`${normalizeRel(root)}/`))
   );
 
   let failed = false;
 
-  if (jsFiles.length > baseline.maxJsFiles) {
+  if (countedJsFiles.length > baseline.maxJsFiles) {
     failed = true;
     // eslint-disable-next-line no-console
     console.error(
-      `[ts-guard] JS file count increased: ${jsFiles.length} > baseline ${baseline.maxJsFiles}.`
+      `[ts-guard] JS file count increased: ${countedJsFiles.length} > baseline ${baseline.maxJsFiles}.`
     );
   } else {
     // eslint-disable-next-line no-console
-    console.log(`[ts-guard] JS file count: ${jsFiles.length}/${baseline.maxJsFiles} (ok)`);
+    console.log(`[ts-guard] JS file count: ${countedJsFiles.length}/${baseline.maxJsFiles} (ok)`);
   }
 
   if (disallowedJs.length > 0) {
