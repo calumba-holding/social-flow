@@ -16,11 +16,14 @@ type GatewayOpts = {
 };
 
 function registerGatewayCommands(program: any) {
+  const defaultHost = process.env.PORT ? '0.0.0.0' : '127.0.0.1';
+  const defaultPort = process.env.PORT || '1310';
+
   program
     .command('gateway')
     .description('Run localhost API gateway (no bundled frontend UI)')
-    .option('--host <host>', 'Host address', '127.0.0.1')
-    .option('--port <port>', 'Port number', '1310')
+    .option('--host <host>', 'Host address', defaultHost)
+    .option('--port <port>', 'Port number', defaultPort)
     .option('--api-key <key>', 'Gateway API key for protected access (header: x-gateway-key)')
     .option('--require-api-key', 'Require API key even for localhost requests', false)
     .option('--cors-origins <csv>', 'Comma-separated allowed CORS origins')
