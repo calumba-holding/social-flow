@@ -1,19 +1,40 @@
 const chalk = require('chalk');
 const config = require('../lib/config');
 const { t } = require('../lib/i18n');
+const { renderPanel, formatBadge, kv } = require('../lib/ui/chrome');
 
-function buildSnapshot() {
+function firstConfiguredApi(tokens = {}) {
+  const apis = ['facebook', 'instagram', 'whatsapp'];
+  for (const api of apis) {
+    if (tokens[api]) return api;
+  }
+  return '';
+}
+
+function buildSnapshot(options = {}) {
+  const autoFix = options.autoFix !== false;
   const activeProfile = config.getActiveProfile();
   const profiles = config.listProfiles();
 
   const apiVersion = config.getApiVersion();
-  const defaultApi = config.getDefaultApi();
+  let defaultApi = config.getDefaultApi();
 
   const tokens = {
     facebook: config.hasToken('facebook'),
     instagram: config.hasToken('instagram'),
     whatsapp: config.hasToken('whatsapp')
   };
+  const autoFixes = [];
+
+  // Inline auto-fix: if default API has no token but another API is configured, switch default.
+  if (defaultApi && !tokens[defaultApi] && autoFix) {
+    const fallbackApi = firstConfiguredApi(tokens);
+    if (fallbackApi) {
+      config.setDefaultApi(fallbackApi);
+      defaultApi = fallbackApi;
+      autoFixes.push(`Default API auto-switched to "${fallbackApi}" (the previous default token was missing).`);
+    }
+  }
 
   const appCredentialsConfigured = config.hasAppCredentials();
 
@@ -24,26 +45,36 @@ function buildSnapshot() {
     marketingAdAccountId: config.getDefaultMarketingAdAccountId()
   };
 
-  const hints = [];
+  const blockers = [];
+  const advisories = [];
 
   if (!tokens.facebook && !tokens.instagram && !tokens.whatsapp) {
-    hints.push(t('doctor_no_tokens'));
+    blockers.push(t('doctor_no_tokens'));
   } else {
-    if (!tokens.facebook) hints.push(t('doctor_missing_facebook'));
-    if (!tokens.instagram) hints.push(t('doctor_missing_instagram'));
-    if (!tokens.whatsapp) hints.push(t('doctor_missing_whatsapp'));
+    if (!tokens.facebook && defaultApi === 'facebook') blockers.push(t('doctor_missing_facebook'));
+    if (!tokens.instagram && defaultApi === 'instagram') blockers.push(t('doctor_missing_instagram'));
+    if (!tokens.whatsapp && defaultApi === 'whatsapp') blockers.push(t('doctor_missing_whatsapp'));
+
+    // Non-default APIs are optional; keep as advisory only.
+    const optionalMissing = [];
+    if (!tokens.facebook && defaultApi !== 'facebook') optionalMissing.push('facebook');
+    if (!tokens.instagram && defaultApi !== 'instagram') optionalMissing.push('instagram');
+    if (!tokens.whatsapp && defaultApi !== 'whatsapp') optionalMissing.push('whatsapp');
+    if (optionalMissing.length) {
+      advisories.push(`Optional API tokens not configured: ${optionalMissing.join(', ')}.`);
+    }
   }
 
   if (!appCredentialsConfigured) {
-    hints.push(t('doctor_missing_app_creds'));
+    advisories.push(t('doctor_missing_app_creds'));
   }
 
   if (!defaults.marketingAdAccountId) {
-    hints.push(t('doctor_missing_ad_account'));
+    advisories.push(t('doctor_missing_ad_account'));
   }
 
   if (defaultApi && !tokens[defaultApi]) {
-    hints.push(t('doctor_default_api_missing_token', { api: defaultApi }));
+    blockers.push(t('doctor_default_api_missing_token', { api: defaultApi }));
   }
 
   return {
@@ -55,24 +86,70 @@ function buildSnapshot() {
     tokens,
     appCredentialsConfigured,
     defaults,
-    hints
+    blockers,
+    advisories,
+    autoFixes
   };
 }
 
 function runDoctor(options) {
-  const snapshot = buildSnapshot();
+  const snapshot = buildSnapshot({ autoFix: true });
 
   if (options.json) {
     console.log(JSON.stringify(snapshot, null, 2));
     return;
   }
 
-  // Keep output consistent with existing commands.
+  const hasBlockers = snapshot.blockers.length > 0;
+  const hasAdvisories = snapshot.advisories.length > 0;
+  const healthBadge = hasBlockers
+    ? formatBadge('ATTENTION', { tone: 'danger' })
+    : (hasAdvisories ? formatBadge('READY WITH TIPS', { tone: 'info' }) : formatBadge('READY', { tone: 'success' }));
+
+  console.log('');
+  console.log(renderPanel({
+    title: ' Doctor Snapshot ',
+    rows: [
+      kv('Profile', chalk.cyan(snapshot.activeProfile), { labelWidth: 14 }),
+      kv('Default API', chalk.cyan(snapshot.defaultApi || 'facebook'), { labelWidth: 14 }),
+      kv('Health', healthBadge, { labelWidth: 14 }),
+      kv('Config', chalk.gray(snapshot.configPath), { labelWidth: 14 })
+    ],
+    minWidth: 78,
+    borderColor: (value) => chalk.blueBright(value)
+  }));
+
+  if (snapshot.autoFixes.length) {
+    console.log('');
+    console.log(renderPanel({
+      title: ' Auto-Fixes Applied ',
+      rows: snapshot.autoFixes.map((line, index) => `${index + 1}. ${chalk.green(line)}`),
+      minWidth: 78,
+      borderColor: (value) => chalk.green(value)
+    }));
+  }
+
   config.display();
 
-  if (snapshot.hints.length) {
-    console.log(chalk.bold(t('doctor_next_steps')));
-    snapshot.hints.forEach((h) => console.log('  - ' + chalk.cyan(h)));
+  const allHints = [...snapshot.blockers, ...snapshot.advisories];
+  if (allHints.length) {
+    console.log(renderPanel({
+      title: ` ${t('doctor_next_steps')} `,
+      rows: allHints.map((hint, index) => {
+        const color = index < snapshot.blockers.length ? chalk.red : chalk.cyan;
+        return `${index + 1}. ${color(hint)}`;
+      }),
+      minWidth: 78,
+      borderColor: (value) => chalk.yellow(value)
+    }));
+    console.log('');
+  } else {
+    console.log(renderPanel({
+      title: ` ${t('doctor_next_steps')} `,
+      rows: [chalk.green('No blocking issues detected.')],
+      minWidth: 78,
+      borderColor: (value) => chalk.green(value)
+    }));
     console.log('');
   }
 }
@@ -92,10 +169,6 @@ function registerDoctorCommands(program) {
   });
 
   // Aliases for muscle memory / simplified UX.
-  addDoctorLikeCommand(program, {
-    name: 'status',
-    description: 'Alias for "doctor"'
-  });
   addDoctorLikeCommand(program, {
     name: 'config',
     description: 'Alias for "doctor"'

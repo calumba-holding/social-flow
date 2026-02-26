@@ -2,7 +2,7 @@
 
 ## Summary
 
-This handoff captures the current TypeScript migration status and release readiness for `social-CLI`.
+This handoff captures the current TypeScript migration status and release readiness for `social-flow`.
 
 ## What Was Completed
 

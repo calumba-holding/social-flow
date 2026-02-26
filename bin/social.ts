@@ -7,6 +7,7 @@ const packageJson = require('../package.json');
 const { getBanner } = require('../lib/banner');
 const config = require('../lib/config');
 const { startLauncherMenu } = require('../lib/ui/launcher-menu');
+const { renderPanel, mint } = require('../lib/ui/chrome');
 const i18n = require('../lib/i18n');
 
 const program = new Command();
@@ -95,17 +96,33 @@ function showBanner() {
 
   const lines = String(banner).split('\n');
   const palette = [
-    (s) => chalk.cyanBright(s),
-    (s) => chalk.blueBright(s),
-    (s) => chalk.cyan(s),
-    (s) => chalk.blue(s),
-    (s) => chalk.cyanBright(s)
+    (s) => chalk.hex('#66FFCC')(s),
+    (s) => chalk.hex('#57E7BE')(s),
+    (s) => chalk.hex('#48D0AF')(s),
+    (s) => chalk.hex('#3ABA9F')(s),
+    (s) => chalk.hex('#66FFCC')(s)
   ];
   const colored = lines.map((l, i) => palette[i % palette.length](l)).join('\n');
+  let activeProfile = 'default';
+  let defaultApi = 'facebook';
+  try {
+    activeProfile = config.getActiveProfile();
+    defaultApi = config.getDefaultApi();
+  } catch {
+    // Keep banner rendering best-effort even if config is unavailable.
+  }
 
   console.log(colored);
-  console.log(chalk.yellow('For devs tired of token gymnastics'));
-  console.log(chalk.green('Built by Chaos Craft Labs.'));
+  console.log(renderPanel({
+    title: ' Social Flow Command Deck ',
+    rows: [
+      `${mint('Profile:')} ${chalk.white(activeProfile)}   ${mint('Version:')} ${chalk.white(packageJson.version)}`,
+      `${mint('Default API:')} ${chalk.white(defaultApi)}   ${mint('Mode:')} ${chalk.white('terminal-native')}`,
+      chalk.gray('Meta APIs + ops workflows with guided approvals and safer defaults.')
+    ],
+    minWidth: 64,
+    borderColor: (value) => mint(value)
+  }));
   console.log('');
 }
 
@@ -119,7 +136,7 @@ if (shouldShowBanner && !process.argv.includes('--no-banner')) {
 
 program
   .name('social')
-  .description('Social API CLI for Meta APIs (Facebook, Instagram, WhatsApp).')
+  .description('Social Flow API CLI for Meta APIs (Facebook, Instagram, WhatsApp).')
   .option('--profile <name>', 'Use a profile (multi-account). Does not persist; use `social accounts switch` to persist.')
   .option('--lang <code>', 'UI language (en|hi). You can also set SOCIAL_LANG.', process.env.SOCIAL_LANG || 'en')
   .option('--no-banner', 'Disable the startup banner')
@@ -131,6 +148,7 @@ program
 // Import command modules (after profile override is applied)
 const authCommands = loadCommandModule('auth');
 const queryCommands = loadCommandModule('query');
+const facebookCommands = loadCommandModule('facebook');
 const appCommands = loadCommandModule('app');
 const limitsCommands = loadCommandModule('limits');
 const postCommands = loadCommandModule('post');
@@ -151,10 +169,19 @@ const tuiCommands = loadCommandModule('tui');
 const onboardCommands = loadCommandModule('onboard');
 const integrationsCommands = loadCommandModule('integrations');
 const policyCommands = loadCommandModule('policy');
+const setupCommands = loadCommandModule('setup');
+const startCommands = loadCommandModule('start');
+const stopCommands = loadCommandModule('stop');
+const statusCommands = loadCommandModule('status');
+const logsCommands = loadCommandModule('logs');
+const studioCommands = loadCommandModule('studio');
+const guideCommands = loadCommandModule('guide');
+const explainCommands = loadCommandModule('explain');
 
 // Register command groups
 authCommands(program);
 queryCommands(program);
+facebookCommands(program);
 appCommands(program);
 limitsCommands(program);
 postCommands(program);
@@ -175,20 +202,35 @@ tuiCommands(program);
 onboardCommands(program);
 integrationsCommands(program);
 policyCommands(program);
+setupCommands(program);
+startCommands(program);
+stopCommands(program);
+statusCommands(program);
+logsCommands(program);
+studioCommands(program);
+guideCommands(program);
+explainCommands(program);
 
 // Custom help
 program.on('--help', () => {
   const chalk = getChalkForBanner();
-  const cmd = (text) => `${chalk.cyan('social')} ${text}`;
+  const cmd = (text) => `${mint('social')} ${text}`;
   console.log('');
+  console.log(chalk.gray('Legend: [options] are optional flags, [command] is the action you want to run.'));
+  console.log(chalk.gray(`Try: ${cmd('<command> --help')} for command-specific flags.\n`));
   console.log(chalk.yellow('Examples:'));
   console.log(`  ${cmd('auth login')}              ` + chalk.gray('# Authenticate API access'));
+  console.log(`  ${cmd('explain syntax')}          ` + chalk.gray('# Understand [options], <values>, aliases, and examples'));
+  console.log(`  ${cmd('explain starter')}         ` + chalk.gray('# Beginner starter bundle (lowest cognitive load)'));
+  console.log(`  ${cmd('facebook me')}             ` + chalk.gray('# Facebook-focused profile shortcut'));
+  console.log(`  ${cmd('facebook pages --table')}  ` + chalk.gray('# Facebook Pages via dedicated category'));
   console.log(`  ${cmd('query me')}                ` + chalk.gray('# Get your profile info'));
   console.log(`  ${cmd('app info')}                ` + chalk.gray('# View app configuration'));
   console.log(`  ${cmd('limits check')}            ` + chalk.gray('# Check rate limits'));
   console.log(`  ${cmd('post create --message "Hello" --page PAGE_ID')}  ` + chalk.gray('# Create a Page post'));
   console.log(`  ${cmd('whatsapp send --from PHONE_ID --to +15551234567 --body "Hello"')}  ` + chalk.gray('# Send a WhatsApp message'));
-  console.log(`  ${cmd('instagram accounts list')} ` + chalk.gray('# List connected IG accounts'));
+  console.log(`  ${cmd('waba send --from PHONE_ID --to +15551234567 --body "Hello"')}  ` + chalk.gray('# WhatsApp alias category (waba)'));
+  console.log(`  ${cmd('insta accounts list')}     ` + chalk.gray('# Instagram alias category (insta)'));
   console.log(`  ${cmd('utils config show')}       ` + chalk.gray('# Show config + defaults'));
   console.log(`  ${cmd('doctor')}                  ` + chalk.gray('# Quick diagnostics (config + setup hints)'));
   console.log(`  ${cmd('onboard')}                 ` + chalk.gray('# Interactive onboarding wizard'));
@@ -202,6 +244,14 @@ program.on('--help', () => {
   console.log(`  ${cmd('tui')}                     ` + chalk.gray('# Agentic terminal dashboard (chat + approvals + replay)'));
   console.log(`  ${cmd('hatch')}                   ` + chalk.gray('# Alias of tui (terminal agent chat)'));
   console.log(`  ${cmd('gateway')}                 ` + chalk.gray('# Social API Gateway (API + WebSocket only)'));
+  console.log(`  ${cmd('setup')}                   ` + chalk.gray('# Guided first-run setup + optional gateway start'));
+  console.log(`  ${cmd('start')}                   ` + chalk.gray('# Start gateway in background with readiness checks'));
+  console.log(`  ${cmd('stop')}                    ` + chalk.gray('# Stop background gateway'));
+  console.log(`  ${cmd('status')}                  ` + chalk.gray('# Runtime status + setup readiness'));
+  console.log(`  ${cmd('logs --lines 120')}        ` + chalk.gray('# Show gateway logs'));
+  console.log(`  ${cmd('studio')}                  ` + chalk.gray('# Launch Studio flow (ensure gateway + open status page)'));
+  console.log(`  ${cmd('guide')}                   ` + chalk.gray('# Universal step-by-step guidance sequence'));
+  console.log(`  ${cmd('start-here')}              ` + chalk.gray('# Alias of explain (starter guidance + syntax)'));
   console.log(`  ${cmd('integrations connect waba')}  ` + chalk.gray('# Guided WABA integration setup + checks'));
   console.log(`  ${cmd('policy preflight "send whatsapp promo"')}  ` + chalk.gray('# Region-aware policy checks before execution'));
   console.log(`  ${cmd('ops morning-run --all-workspaces --spend 320')}  ` + chalk.gray('# Morning agency ops checks + approvals'));
@@ -215,7 +265,7 @@ program.on('--help', () => {
   console.log(`  ${cmd('hub search ops')}          ` + chalk.gray('# Search hub packages (connectors/playbooks/skills)'));
   console.log(`  ${cmd('hub trust show')}          ` + chalk.gray('# Inspect package trust policy and keys'));
   console.log('');
-  console.log(chalk.cyan('Documentation: https://github.com/vishalgojha/social-CLI'));
+  console.log(mint('Documentation: https://github.com/vishalgojha/social-flow'));
 });
 
 async function main() {

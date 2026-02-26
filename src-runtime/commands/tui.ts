@@ -2,6 +2,7 @@ import path = require('path');
 import fs = require('fs');
 import { spawn } from 'child_process';
 import chalk = require('chalk');
+const inquirer = require('inquirer');
 
 const config = require('../../lib/config');
 
@@ -31,6 +32,43 @@ function needsOnboarding() {
   return !config.hasCompletedOnboarding();
 }
 
+function getConfiguredAgentApiKey() {
+  const agent = typeof config.getAgentConfig === 'function' ? config.getAgentConfig() : {};
+  return String(agent && agent.apiKey ? agent.apiKey : '').trim();
+}
+
+async function promptForApiKey(): Promise<string> {
+  if (!process.stdout.isTTY || !process.stdin.isTTY) return '';
+
+  console.log(chalk.yellow('\nHatch UI needs an OpenAI API key.'));
+  console.log(chalk.gray('Enter it once now (input hidden). You can choose whether to save it.\n'));
+
+  const answers = await inquirer.prompt([
+    {
+      type: 'password',
+      name: 'key',
+      mask: '*',
+      message: 'Enter OpenAI API key:',
+      validate: (value: string) => Boolean(String(value || '').trim()) || 'API key cannot be empty'
+    },
+    {
+      type: 'confirm',
+      name: 'save',
+      default: true,
+      message: 'Save this key to active profile for future hatch runs?'
+    }
+  ]);
+
+  const key = String(answers.key || '').trim();
+  if (key && answers.save && typeof config.setAgentApiKey === 'function') {
+    config.setAgentProvider('openai');
+    config.setAgentApiKey(key);
+    console.log(chalk.green('Saved API key for active profile.\n'));
+  }
+
+  return key;
+}
+
 function registerTuiCommand(program: any) {
   program
     .command('tui')
@@ -56,10 +94,18 @@ function registerTuiCommand(program: any) {
         opts.aiApiKey ||
           process.env.SOCIAL_TUI_AI_API_KEY ||
           process.env.OPENAI_API_KEY ||
+          getConfiguredAgentApiKey() ||
           ''
       ).trim();
-      if (!apiKey) {
-        console.error(chalk.red('\nHatch UI requires a valid API key. Set OPENAI_API_KEY or pass --ai-api-key.\n'));
+
+      let resolvedApiKey = apiKey;
+      if (!resolvedApiKey) {
+        resolvedApiKey = await promptForApiKey();
+      }
+
+      if (!resolvedApiKey) {
+        console.error(chalk.red('\nHatch UI requires a valid API key.'));
+        console.error(chalk.gray('Set OPENAI_API_KEY, pass --ai-api-key, or run `social hatch` in a terminal to enter it securely.\n'));
         process.exit(1);
       }
 
@@ -68,14 +114,14 @@ function registerTuiCommand(program: any) {
         SOCIAL_TUI_AI_PROVIDER: provider,
         SOCIAL_TUI_AI_MODEL: opts.aiModel || process.env.SOCIAL_TUI_AI_MODEL || '',
         SOCIAL_TUI_AI_BASE_URL: opts.aiBaseUrl || process.env.SOCIAL_TUI_AI_BASE_URL || '',
-        SOCIAL_TUI_AI_API_KEY: apiKey
+        SOCIAL_TUI_AI_API_KEY: resolvedApiKey
       };
 
       try {
         if (!opts.skipOnboardCheck && needsOnboarding()) {
           console.log(chalk.yellow('\nFirst-run setup required before Hatch UI.'));
-          console.log(chalk.gray('Guided path: onboard -> auth login -> doctor checks.\n'));
-          await runSubprocess(process.execPath, [binPath, '--no-banner', 'onboard'], env);
+          console.log(chalk.gray('Guided path: setup -> status -> hatch.\n'));
+          await runSubprocess(process.execPath, [binPath, '--no-banner', 'setup', '--no-start'], env);
           return;
         }
 

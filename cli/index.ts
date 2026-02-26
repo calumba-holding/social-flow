@@ -26,7 +26,7 @@ const program = new Command();
 
 program
   .name("social")
-  .description("Deterministic Social CLI")
+  .description("Deterministic Social Flow")
   .version("0.3.0");
 
 program

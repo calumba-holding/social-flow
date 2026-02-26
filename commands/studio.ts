@@ -1,0 +1,111 @@
+const http = require('http');
+const chalk = require('chalk');
+const { openUrl } = require('../lib/open-url');
+const { startGatewayBackground } = require('../lib/gateway/manager');
+const { renderPanel, mint } = require('../lib/ui/chrome');
+
+function parseBaseUrl(input) {
+  const raw = String(input || 'http://127.0.0.1:1310').trim();
+  try {
+    return new URL(raw);
+  } catch {
+    return new URL(`http://${raw}`);
+  }
+}
+
+function requestJson(url) {
+  return new Promise((resolve) => {
+    const req = http.get(url, { timeout: 2000 }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        let data = {};
+        try {
+          data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        } catch {
+          data = {};
+        }
+        resolve({
+          status: res.statusCode || 0,
+          data
+        });
+      });
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ status: 0, data: {} });
+    });
+    req.on('error', () => resolve({ status: 0, data: {} }));
+  });
+}
+
+function registerStudioCommand(program) {
+  program
+    .command('studio')
+    .description('Launch studio flow (ensure gateway is up and open status page)')
+    .option('--url <url>', 'Gateway base URL', 'http://127.0.0.1:1310')
+    .option('--no-open', 'Do not open Studio status page in browser')
+    .option('--no-auto-start', 'Do not auto-start gateway when health is down')
+    .action(async (opts) => {
+      const baseUrl = parseBaseUrl(opts.url);
+      const healthUrl = new URL('/api/health', baseUrl).toString();
+      const statusUrl = new URL('/api/status?doctor=1', baseUrl).toString();
+      const rootUrl = new URL('/', baseUrl).toString();
+      const host = String(baseUrl.hostname || '127.0.0.1').trim();
+      const fallbackPort = baseUrl.protocol === 'https:' ? 443 : 80;
+      const port = Number(baseUrl.port || fallbackPort);
+
+      let health = await requestJson(healthUrl);
+      const root = await requestJson(rootUrl);
+      let autoStarted = false;
+
+      if ((!health || !health.data || !health.data.ok) && opts.autoStart !== false) {
+        const started = await startGatewayBackground({ host, port });
+        autoStarted = Boolean(started.started);
+        health = started.health && started.health.ok
+          ? { status: 200, data: started.health.data || { ok: true } }
+          : await requestJson(healthUrl);
+      }
+
+      const rows = [];
+      if (health.status === 200 && health.data && health.data.ok) {
+        rows.push(chalk.green(`Gateway reachable: ${baseUrl.toString().replace(/\/$/, '')}`));
+        rows.push(chalk.gray(`Health endpoint: ${healthUrl}`));
+        rows.push(chalk.gray(`Studio status page: ${statusUrl}`));
+        if (autoStarted) rows.push(chalk.green('Gateway auto-started for Studio flow.'));
+      } else {
+        rows.push(chalk.red(`Gateway not reachable at ${baseUrl.toString().replace(/\/$/, '')}`));
+        rows.push(chalk.yellow('Start it first: social start'));
+        rows.push(chalk.gray('For debugging: social logs --lines 120'));
+      }
+
+      if (root.status === 410) {
+        rows.push('');
+        rows.push(mint('Studio frontend is intentionally not bundled in this gateway.'));
+        rows.push(chalk.gray('This service exposes API + WebSocket endpoints only.'));
+        rows.push(chalk.gray('Studio command opens API status in browser and ensures gateway health.'));
+      }
+
+      rows.push('');
+      rows.push('Fast checks:');
+      rows.push(`1. curl ${healthUrl}`);
+      rows.push(`2. social status`);
+      rows.push('3. social logs');
+      rows.push(`4. open ${statusUrl}`);
+
+      console.log('');
+      console.log(renderPanel({
+        title: ' Studio Mode ',
+        rows,
+        minWidth: 88,
+        borderColor: (value) => mint(value)
+      }));
+      console.log('');
+
+      if (opts.open !== false && health.status === 200 && health.data && health.data.ok) {
+        await openUrl(statusUrl);
+      }
+    });
+}
+
+module.exports = registerStudioCommand;

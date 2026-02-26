@@ -39,7 +39,10 @@ async function run() {
       'gateway.test',
       'policy.test',
       'ops.test',
-      'hub.test'
+      'hub.test',
+      'ui-chrome.test',
+      'readiness.test',
+      'guidance.test'
     ];
 
     const tests: TestCase[] = [];

@@ -980,7 +980,7 @@ module.exports = [
         });
         assert.equal(fileDownload.status, 200);
         assert.equal(String(fileDownload.headers['content-disposition'] || '').includes('handoff.md'), true);
-        assert.equal(String(fileDownload.raw || '').includes('# Social CLI Agency Handoff - default'), true);
+        assert.equal(String(fileDownload.raw || '').includes('# Social Flow Agency Handoff - default'), true);
 
         const outsidePath = path.join(os.tmpdir(), 'gateway-outside-file.txt');
         fs.writeFileSync(outsidePath, 'outside', 'utf8');

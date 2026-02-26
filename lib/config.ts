@@ -2,6 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const chalk = require('chalk');
+const { renderPanel, formatBadge, kv, formatTokenPreview } = require('./ui/chrome');
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -566,58 +567,95 @@ class ConfigManager {
     const p = this._profile(selected);
     const tokens = p.tokens || {};
     const app = { appId: (p.app || {}).id || '', appSecret: (p.app || {}).secret || '' };
-
-    console.log(chalk.bold('\nCurrent Configuration:'));
-    console.log(chalk.gray('Config file: ' + this.getConfigPath()));
-    console.log(chalk.gray('Active profile: ' + active));
-    console.log(chalk.gray('Profiles: ' + this.listProfiles().join(', ')));
     const operator = this.getOperator();
-    console.log(chalk.gray('Operator: ' + (operator.id || 'not set')));
-    console.log('');
+    const region = this.getRegionConfig();
 
-    if (selected !== active) {
-      console.log(chalk.gray(`Showing profile: ${selected}`));
-      console.log('');
-    }
+    const summaryRows = [
+      kv('Config file', chalk.gray(this.getConfigPath()), { labelWidth: 15 }),
+      kv('Active profile', chalk.cyan(active), { labelWidth: 15 }),
+      kv('Viewing profile', chalk.cyan(selected), { labelWidth: 15 }),
+      kv('Profiles', chalk.cyan(this.listProfiles().join(', ')), { labelWidth: 15 }),
+      kv('Operator', operator.id ? chalk.cyan(operator.id) : '', { labelWidth: 15 }),
+      kv(
+        'Onboarding',
+        p.onboarding && p.onboarding.completedAt
+          ? `${formatBadge('COMPLETE', { tone: 'success' })} ${chalk.gray(p.onboarding.completedAt)}`
+          : formatBadge('PENDING', { tone: 'warn' }),
+        { labelWidth: 15 }
+      )
+    ];
 
-    console.log(chalk.bold('Tokens:'));
-    ['facebook', 'instagram', 'whatsapp'].forEach((api) => {
-      const token = tokens[api];
-      if (token) {
-        const masked = token.substring(0, 6) + '...' + token.substring(token.length - 4);
-        console.log(`  ${api}: ${chalk.green(masked)}`);
-      } else {
-        console.log(`  ${api}: ${chalk.red('not set')}`);
-      }
+    const tokenRows = ['facebook', 'instagram', 'whatsapp'].map((api) => {
+      const token = String(tokens[api] || '').trim();
+      const state = token ? formatBadge('READY', { tone: 'success' }) : formatBadge('MISSING', { tone: 'warn' });
+      const preview = token ? chalk.green(formatTokenPreview(token)) : chalk.gray('not set');
+      return `${chalk.cyan(api.padEnd(10, ' '))} ${state} ${preview}`;
     });
 
-    console.log('');
-    console.log(chalk.bold('App Credentials:'));
-    console.log(`  App ID: ${app.appId ? chalk.green(app.appId) : chalk.red('not set')}`);
-    console.log(`  App Secret: ${app.appSecret ? chalk.green('***configured***') : chalk.red('not set')}`);
+    const settingsRows = [
+      kv('App ID', app.appId ? chalk.green(app.appId) : '', { labelWidth: 16 }),
+      kv('App Secret', app.appSecret ? formatBadge('CONFIGURED', { tone: 'success' }) : '', { labelWidth: 16 }),
+      kv('API Version', chalk.cyan(p.apiVersion || 'v20.0'), { labelWidth: 16 }),
+      kv('Default API', chalk.cyan(p.defaultApi || 'facebook'), { labelWidth: 16 }),
+      kv('Agent Provider', chalk.cyan((p.agent || {}).provider || 'openai'), { labelWidth: 16 }),
+      kv('Agent Model', chalk.cyan((p.agent || {}).model || '(default)'), { labelWidth: 16 }),
+      kv('Agent API Key', (p.agent || {}).apiKey ? formatBadge('CONFIGURED', { tone: 'success' }) : '', { labelWidth: 16 })
+    ];
+
+    const defaultsRows = [
+      kv('Facebook Page', (p.defaults || {}).facebookPageId ? chalk.cyan((p.defaults || {}).facebookPageId) : '', { labelWidth: 16 }),
+      kv('Instagram User', (p.defaults || {}).igUserId ? chalk.cyan((p.defaults || {}).igUserId) : '', { labelWidth: 16 }),
+      kv('WhatsApp Phone', (p.defaults || {}).whatsappPhoneNumberId ? chalk.cyan((p.defaults || {}).whatsappPhoneNumberId) : '', { labelWidth: 16 }),
+      kv('Ad Account', (p.defaults || {}).marketingAdAccountId ? chalk.cyan((p.defaults || {}).marketingAdAccountId) : '', { labelWidth: 16 })
+    ];
+
+    const regionRows = [
+      kv('Country', region.country ? chalk.cyan(region.country) : '', { labelWidth: 16 }),
+      kv('Timezone', region.timezone ? chalk.cyan(region.timezone) : '', { labelWidth: 16 }),
+      kv('Regulatory', chalk.cyan(region.regulatoryMode), { labelWidth: 16 }),
+      kv('Use Case', chalk.cyan(region.useCase), { labelWidth: 16 }),
+      kv('Policy Profile', chalk.cyan(region.policyProfile), { labelWidth: 16 })
+    ];
 
     console.log('');
-    console.log(chalk.bold('Settings:'));
-    console.log(`  API Version: ${chalk.cyan(p.apiVersion || 'v20.0')}`);
-    console.log(`  Default API: ${chalk.cyan(p.defaultApi || 'facebook')}`);
-    console.log(`  Agent Provider: ${chalk.cyan((p.agent || {}).provider || 'openai')}`);
-    console.log(`  Agent Model: ${chalk.cyan((p.agent || {}).model || '(default)')}`);
-    console.log(`  Agent API Key: ${(p.agent || {}).apiKey ? chalk.green('***configured***') : chalk.gray('not set')}`);
+    console.log(renderPanel({
+      title: ' Configuration Snapshot ',
+      rows: summaryRows,
+      minWidth: 78,
+      borderColor: (value) => chalk.cyan(value)
+    }));
+    console.log('');
 
+    console.log(renderPanel({
+      title: ' Tokens ',
+      rows: tokenRows,
+      minWidth: 78,
+      borderColor: (value) => chalk.blue(value)
+    }));
     console.log('');
-    console.log(chalk.bold('Defaults:'));
-    console.log(`  Default Facebook Page: ${(p.defaults || {}).facebookPageId ? chalk.cyan((p.defaults || {}).facebookPageId) : chalk.gray('not set')}`);
-    console.log(`  Default IG User: ${(p.defaults || {}).igUserId ? chalk.cyan((p.defaults || {}).igUserId) : chalk.gray('not set')}`);
-    console.log(`  Default WhatsApp Phone: ${(p.defaults || {}).whatsappPhoneNumberId ? chalk.cyan((p.defaults || {}).whatsappPhoneNumberId) : chalk.gray('not set')}`);
-    console.log(`  Default Ad Account: ${(p.defaults || {}).marketingAdAccountId ? chalk.cyan((p.defaults || {}).marketingAdAccountId) : chalk.gray('not set')}`);
-    const region = this.getRegionConfig();
+
+    console.log(renderPanel({
+      title: ' App + Agent ',
+      rows: settingsRows,
+      minWidth: 78,
+      borderColor: (value) => chalk.magenta(value)
+    }));
     console.log('');
-    console.log(chalk.bold('Region:'));
-    console.log(`  Country: ${region.country ? chalk.cyan(region.country) : chalk.gray('not set')}`);
-    console.log(`  Timezone: ${region.timezone ? chalk.cyan(region.timezone) : chalk.gray('not set')}`);
-    console.log(`  Regulatory Mode: ${chalk.cyan(region.regulatoryMode)}`);
-    console.log(`  Use Case: ${chalk.cyan(region.useCase)}`);
-    console.log(`  Policy Profile: ${chalk.cyan(region.policyProfile)}`);
+
+    console.log(renderPanel({
+      title: ' Defaults ',
+      rows: defaultsRows,
+      minWidth: 78,
+      borderColor: (value) => chalk.green(value)
+    }));
+    console.log('');
+
+    console.log(renderPanel({
+      title: ' Region ',
+      rows: regionRows,
+      minWidth: 78,
+      borderColor: (value) => chalk.yellow(value)
+    }));
     console.log('');
   }
 }

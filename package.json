@@ -1,7 +1,7 @@
 {
   "name": "@vishalgojha/social-cli",
   "version": "0.2.13",
-  "description": "A CLI for social API operations (Facebook, Instagram, WhatsApp).",
+  "description": "Social Flow CLI for Meta API operations (Facebook, Instagram, WhatsApp).",
   "main": "dist-legacy/index.js",
   "bin": {
     "social": "dist-legacy/bin/social.js"
@@ -25,7 +25,8 @@
     "smoke:release": "npm run build:legacy-ts && node dist-legacy/scripts/release-smoke.js",
     "ts:migration-guard": "npm run build:legacy-ts && node dist-legacy/scripts/ts-migration-guard.js",
     "quality:check": "npm run ts:migration-guard && npm run build:runtime-ts && npm run lint && npm run typecheck:legacy-entrypoints && npm test && npm run test:social-ts && npm run smoke:release",
-    "start": "node bin/social.js gateway",
+    "start": "node bin/social.js start --foreground",
+    "setup": "node bin/social.js setup",
     "prepack": "npm run build:legacy-ts && npm run build:runtime-ts && npm run build:social-ts",
     "social:dev": "tsx cli/index.ts",
     "dev": "tsx cli/index.ts"
@@ -42,12 +43,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vishalgojha/social-CLI.git"
+    "url": "git+https://github.com/vishalgojha/social-flow.git"
   },
   "bugs": {
-    "url": "https://github.com/vishalgojha/social-CLI/issues"
+    "url": "https://github.com/vishalgojha/social-flow/issues"
   },
-  "homepage": "https://github.com/vishalgojha/social-CLI#readme",
+  "homepage": "https://github.com/vishalgojha/social-flow#readme",
   "publishConfig": {
     "access": "public"
   },

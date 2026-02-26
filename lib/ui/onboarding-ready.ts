@@ -1,8 +1,8 @@
 function nextActions() {
   return [
-    { label: 'Open Hatch UI', command: 'social hatch' },
-    { label: 'Run diagnostics', command: 'social doctor --quick' },
-    { label: 'Start with a plain-English command', command: 'social ai "check auth status"' }
+    { label: 'Start Gateway', command: 'social start' },
+    { label: 'Check health', command: 'social status' },
+    { label: 'Open Hatch UI', command: 'social hatch' }
   ];
 }
 

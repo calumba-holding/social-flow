@@ -101,7 +101,7 @@ async function pickPhoneNumberId(phoneNumbers: PhoneNumberEntry[], defaultId?: s
 }
 
 function registerWhatsAppCommands(program: any) {
-  const whatsapp = program.command('whatsapp').description('WhatsApp Business (Cloud API)');
+  const whatsapp = program.command('whatsapp').alias('waba').alias('wa').description('WhatsApp Business (Cloud API)');
 
   whatsapp
     .command('send')

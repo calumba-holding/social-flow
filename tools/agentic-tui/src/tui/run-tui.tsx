@@ -474,7 +474,7 @@ function HatchRuntime(): JSX.Element {
   return (
     <Box flexDirection="column" height={30}>
       <HeaderBar
-        title="Social CLI Hatch"
+        title="Social Flow Hatch"
         connected={connectedCount}
         total={3}
         phase={state.phase}

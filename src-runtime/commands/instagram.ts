@@ -75,7 +75,7 @@ async function pickIgUser(accounts: IgAccount[], defaultId?: string): Promise<st
 }
 
 function registerInstagramCommands(program: any) {
-  const instagram = program.command('instagram').description('Instagram Graph API helpers');
+  const instagram = program.command('instagram').alias('insta').alias('ig').description('Instagram Graph API helpers');
   const accounts = instagram.command('accounts').description('Manage connected Instagram business accounts');
 
   accounts

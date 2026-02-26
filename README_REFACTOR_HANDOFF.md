@@ -11,7 +11,7 @@ Refactor the root README from long-form handbook style into an onboarding-first 
 
 - Replaced `README.md` with a concise, adoption-focused version.
 - Kept the root README focused on:
-  - what Social CLI is
+  - what Social Flow is
   - install paths (npm + one-click Windows)
   - 60-second quick start
   - core command map

@@ -1,4 +1,4 @@
-# social-cli
+# Social Flow
 
 A command-line and localhost control plane for Meta APIs (Facebook, Instagram, WhatsApp, and Marketing API).
 
@@ -14,7 +14,7 @@ npm run quality:check
 railway up
 ```
 
-## Why Use Social CLI
+## Why Use Social Flow
 
 - One auth surface across Meta APIs
 - Profile-based multi-account workflows

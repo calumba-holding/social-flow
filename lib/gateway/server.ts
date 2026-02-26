@@ -184,7 +184,7 @@ function buildHandoffDoc({
   const keyText = gatewayApiKey || '<set_gateway_api_key>';
   const templateName = normalizeHandoffTemplate(template) || 'agency';
   const common = [
-    `# Social CLI Agency Handoff - ${ws}`,
+    `# Social Flow Agency Handoff - ${ws}`,
     '',
     `Generated: ${generatedAt}`,
     '',

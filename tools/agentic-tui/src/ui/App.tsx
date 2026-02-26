@@ -679,7 +679,7 @@ function Dashboard(): JSX.Element {
 
   return (
     <Box flexDirection="column" height={28}>
-      <HeaderBar title="Social CLI Agent Console" connected={connectedCount} total={3} />
+      <HeaderBar title="Social Flow Agent Console" connected={connectedCount} total={3} />
 
       <Box flexGrow={1} flexDirection="row">
         <Box width={rightRailCollapsed ? "100%" : "67%"} marginRight={rightRailCollapsed ? 0 : 1} flexDirection="column">

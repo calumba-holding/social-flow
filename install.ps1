@@ -144,7 +144,7 @@ function Install-GlobalFallback {
 $repoRoot = Split-Path -Parent $PSCommandPath
 Push-Location $repoRoot
 try {
-  Write-Step "Starting Social CLI one-click installer"
+  Write-Step "Starting Social Flow one-click installer"
   Write-Host "Repo: $repoRoot" -ForegroundColor Gray
 
   $npmPath = Resolve-NpmCommand
@@ -218,7 +218,7 @@ try {
     Remove-Item -Recurse -Force $verifyHome -ErrorAction SilentlyContinue
   }
 
-  Write-Host "`nDone. Social CLI installer finished successfully." -ForegroundColor Green
+  Write-Host "`nDone. Social Flow installer finished successfully." -ForegroundColor Green
   if ($NoGlobal) {
     Write-Host "Run locally: node .\dist-legacy\bin\social.js --help" -ForegroundColor Gray
   } else {

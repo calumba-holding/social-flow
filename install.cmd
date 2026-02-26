@@ -84,7 +84,7 @@ goto :end
 
 :launch_hatch_new
 echo Launching Hatch in a new window...
-start "Social CLI Hatch" cmd /k ""%NODE_EXE%" "%~dp0dist-legacy\bin\social.js" hatch"
+start "Social Flow Hatch" cmd /k ""%NODE_EXE%" "%~dp0dist-legacy\bin\social.js" hatch"
 goto :end
 
 :launch_studio_new

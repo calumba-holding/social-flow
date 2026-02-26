@@ -139,7 +139,7 @@ async function runWabaDoctor({ token, businessId, wabaId, phoneNumberId, callbac
         messaging_product: 'whatsapp',
         to: testTo,
         type: 'text',
-        text: { body: 'Social CLI test message' }
+        text: { body: 'Social Flow test message' }
       });
       checks.push({ key: 'test_send', ok: true, detail: `Sent to ${testTo}` });
     } catch (error) {

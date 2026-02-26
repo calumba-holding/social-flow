@@ -76,7 +76,7 @@ function buildHandoffDoc({
   const templateName = String(template || 'agency').trim().toLowerCase();
 
   const common = [
-    `# Social CLI Agency Handoff - ${ws}`,
+    `# Social Flow Agency Handoff - ${ws}`,
     '',
     `Generated: ${generatedAt}`,
     '',
