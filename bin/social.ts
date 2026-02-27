@@ -170,6 +170,7 @@ const statusCommands = loadCommandModule('status');
 const logsCommands = loadCommandModule('logs');
 const studioCommands = loadCommandModule('studio');
 const guideCommands = loadCommandModule('guide');
+const startHereCommands = loadCommandModule('start-here');
 const explainCommands = loadCommandModule('explain');
 
 // Register command groups
@@ -203,6 +204,7 @@ statusCommands(program);
 logsCommands(program);
 studioCommands(program);
 guideCommands(program);
+startHereCommands(program);
 explainCommands(program);
 
 // Custom help
@@ -245,7 +247,7 @@ program.on('--help', () => {
   console.log(`  ${cmd('logs --lines 120')}        ` + chalk.gray('# Show gateway logs'));
   console.log(`  ${cmd('studio')}                  ` + chalk.gray('# Launch Studio flow (ensure gateway + open status page)'));
   console.log(`  ${cmd('guide')}                   ` + chalk.gray('# Universal step-by-step guidance sequence'));
-  console.log(`  ${cmd('start-here')}              ` + chalk.gray('# Alias of explain (starter guidance + syntax)'));
+  console.log(`  ${cmd('start-here')}              ` + chalk.gray('# Unified setup: AI config + tokens + health verification'));
   console.log(`  ${cmd('integrations connect waba')}  ` + chalk.gray('# Guided WABA integration setup + checks'));
   console.log(`  ${cmd('policy preflight "send whatsapp promo"')}  ` + chalk.gray('# Region-aware policy checks before execution'));
   console.log(`  ${cmd('ops morning-run --all-workspaces --spend 320')}  ` + chalk.gray('# Morning agency ops checks + approvals'));

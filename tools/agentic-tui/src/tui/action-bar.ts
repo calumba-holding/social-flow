@@ -31,6 +31,5 @@ export function buildActionBarHint(state: ActionBarState): string {
     return `Enter continue | / palette | ? help${verboseHint}`;
   }
 
-  return `try: status | doctor | what can you do | /help | /ai <intent>${replayHint}${verboseHint}`;
+  return `try: status | doctor | waba setup | what can you do | /help | /ai <intent>${replayHint}${verboseHint}`;
 }
-

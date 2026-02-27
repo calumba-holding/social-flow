@@ -85,6 +85,7 @@ function formatToolCall(intent: ParsedIntent): string {
 }
 
 function describeAction(action: ParsedIntent["action"]): string {
+  if (action === "guide") return "run a guided setup path";
   if (action === "help") return "show available capabilities";
   if (action === "doctor") return "run diagnostics";
   if (action === "status" || action === "get_status") return "check runtime status";
@@ -106,6 +107,16 @@ function summarizeExecutionForChat(intent: ParsedIntent, result: ExecutionResult
       return "I could not map that request yet. Try `what can you do`, `status`, or `/help`.";
     }
     return error ? `I could not complete that: ${error}` : "I could not complete that request.";
+  }
+
+  if (intent.action === "guide") {
+    const label = String(output.label || output.topic || "Setup");
+    const suggestions = Array.isArray(output.suggestions)
+      ? output.suggestions.map((x) => String(x)).filter(Boolean).slice(0, 3)
+      : [];
+    return suggestions.length
+      ? `${label} guidance is ready. Try: ${suggestions.join(" | ")}`
+      : `${label} guidance is ready.`;
   }
 
   if (intent.action === "help") {
@@ -149,6 +160,7 @@ function summarizeExecutionForChat(intent: ParsedIntent, result: ExecutionResult
 function explainPlan(intent: ParsedIntent | null, risk: string | null): string {
   if (!intent) return "No active plan yet. Send a request first.";
   const actionReason: Record<string, string> = {
+    guide: "You asked for guided setup or next steps in a specific domain.",
     doctor: "You asked for health/setup validation.",
     status: "You asked for a quick account/system status snapshot.",
     config: "You asked to inspect current non-sensitive config.",
@@ -261,19 +273,26 @@ function HatchRuntime(): JSX.Element {
     return () => clearInterval(id);
   }, [refreshLogs]);
 
-  const runExecution = useCallback(async (): Promise<void> => {
-    if (!state.currentIntent) return;
-    const current = queueItem(state.currentIntent.action, state.currentIntent.params);
+  const runExecution = useCallback(async (intentOverride?: ParsedIntent): Promise<void> => {
+    const intent = intentOverride || state.currentIntent;
+    if (!intent) {
+      // Defensive reset: avoid getting stuck in EXECUTING if state intent is stale.
+      dispatch({ type: "LOG_ADD", entry: newLog("WARN", "Execution skipped: no active intent.") });
+      dispatch({ type: "RESET_FLOW" });
+      return;
+    }
+
+    const current = queueItem(intent.action, intent.params);
     dispatch({ type: "QUEUE_ADD", item: current });
     dispatch({ type: "QUEUE_UPDATE", id: current.id, status: "RUNNING" });
     dispatch({ type: "MARK_EXECUTING" });
-    dispatch({ type: "LOG_ADD", entry: newLog("INFO", `Executing ${state.currentIntent.action}`) });
-    if (state.showDetails) await streamPhase("Executing", state.currentIntent.action);
+    dispatch({ type: "LOG_ADD", entry: newLog("INFO", `Executing ${intent.action}`) });
+    if (state.showDetails) await streamPhase("Executing", intent.action);
 
     try {
-      const executor = getExecutor(state.currentIntent.action);
+      const executor = getExecutor(intent.action);
       if (state.showDetails) await streamPhase("Validating", "risk gate and required fields");
-      const res = await executor.execute(state.currentIntent);
+      const res = await executor.execute(intent);
       dispatch({ type: "QUEUE_UPDATE", id: current.id, status: res.ok ? "DONE" : "FAILED" });
       dispatch({ type: "SET_RESULT", result: res.output });
       dispatch({
@@ -282,20 +301,20 @@ function HatchRuntime(): JSX.Element {
       });
       if (state.showDetails) {
         await streamAssistantTurn(res.ok ? "Done. I executed that successfully." : "Execution failed. Check logs/results.");
-        await streamAssistantTurn(`tool_result: ${state.currentIntent.action} -> ${res.ok ? "ok" : "failed"}`);
+        await streamAssistantTurn(`tool_result: ${intent.action} -> ${res.ok ? "ok" : "failed"}`);
         const summaryKeys = Object.keys(res.output || {}).slice(0, 5);
         await streamAssistantTurn(
           `Execution summary: queue=${current.id}, status=${res.ok ? "success" : "failed"}, output_keys=${summaryKeys.join(", ") || "none"}.`
         );
       } else {
-        await streamAssistantTurn(summarizeExecutionForChat(state.currentIntent, res));
+        await streamAssistantTurn(summarizeExecutionForChat(intent, res));
       }
       if (res.rollback) {
         dispatch({
           type: "ROLLBACK_ADD",
           item: {
             at: new Date().toISOString(),
-            action: state.currentIntent.action,
+            action: intent.action,
             note: res.rollback.note,
             status: res.rollback.status
           }
@@ -384,7 +403,7 @@ function HatchRuntime(): JSX.Element {
     if (parsedRisk === "LOW") {
       dispatch({ type: "APPROVED", auto: true });
       await streamAssistantTurn("Low-risk action. Auto-executing.");
-      await runExecution();
+      await runExecution(parsed.intent);
       return;
     }
     await streamAssistantTurn("Awaiting approval. Press Enter or a to continue.");
@@ -430,7 +449,7 @@ function HatchRuntime(): JSX.Element {
         return;
       }
       dispatch({ type: "APPROVED" });
-      await runExecution();
+      await runExecution(state.currentIntent || undefined);
       return;
     }
 
@@ -440,7 +459,7 @@ function HatchRuntime(): JSX.Element {
         return;
       }
       dispatch({ type: "APPROVED", reason: state.approvalReason.trim() });
-      await runExecution();
+      await runExecution(state.currentIntent || undefined);
       return;
     }
 
@@ -672,6 +691,7 @@ function HatchRuntime(): JSX.Element {
             options={[
               { label: "Doctor", value: "doctor" },
               { label: "Status", value: "status" },
+              { label: "WABA setup guide", value: "waba setup" },
               { label: "Config", value: "config" },
               { label: "Logs", value: "logs limit 20" },
               { label: "Replay latest", value: "replay latest" },

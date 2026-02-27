@@ -64,9 +64,42 @@ function extractQuoted(input: string): string | undefined {
   return m?.[1]?.trim();
 }
 
+function hasAny(text: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function detectGuideTopic(input: string): string {
+  const s = String(input || "").toLowerCase();
+  const asksGuidance = hasAny(s, [
+    /\b(setup|set up|configure|config|connect|onboard|auth|authenticate|login|guide|start)\b/,
+    /\b(help|how to|how do i|where do i|what next)\b/
+  ]);
+  if (!asksGuidance) return "";
+
+  if (hasAny(s, [/\bwhatsapp\b/, /\bwaba\b/, /\btemplate\b/, /\bwebhook\b/, /\bphone number id\b/])) {
+    return "waba";
+  }
+  if (hasAny(s, [/\binstagram\b/, /\binsta\b/, /\big\b/, /\breel\b/, /\bstory\b/])) {
+    return "instagram";
+  }
+  if (hasAny(s, [/\bads?\b/, /\bmarketing\b/, /\bcampaign\b/, /\badset\b/, /\bact_[a-z0-9_]+\b/])) {
+    return "marketing";
+  }
+  if (hasAny(s, [/\bfacebook\b/, /\bfb\b/, /\bpage\b/, /\bgraph api\b/])) {
+    return "facebook";
+  }
+  if (hasAny(s, [/\btoken\b/, /\bapp id\b/, /\bapp secret\b/, /\bcredential\b/, /\bauth\b/])) {
+    return "setup-auth";
+  }
+
+  return "setup-auth";
+}
+
 function inferAction(input: string): ParsedIntent["action"] {
   const s = input.toLowerCase();
+  const guideTopic = detectGuideTopic(s);
   if (/\bsocial\s+hatch\b/.test(s) || /\bsocial\s+tui\b/.test(s)) return "help";
+  if (guideTopic) return "guide";
   if (/\b(help|what can you do|what do you do|show commands|how do i use|start here)\b/.test(s)) return "help";
   if (/\b(hi|hello|hey|yo|hola|good morning|good evening|good afternoon)\b/.test(s)) return "status";
   if (/^\s*onboard\b/.test(s) || /\bsetup\b.*\bsocial\b/.test(s)) return "onboard";
@@ -125,7 +158,9 @@ function toParsedIntentFromCore(intent: CoreIntent): ParsedIntent {
   if (intent.action === "doctor") return { action: "doctor", params: intent.params };
   if (intent.action === "status") return { action: "status", params: intent.params };
   if (intent.action === "config") return { action: "config", params: intent.params };
+  if (intent.action === "get" && intent.target === "system") return { action: "status", params: {} };
   if (intent.action === "logs") return { action: "logs", params: intent.params };
+  if (intent.action === "list" && intent.target === "logs") return { action: "logs", params: intent.params };
   if (intent.action === "replay") return { action: "replay", params: intent.params };
   if (intent.action === "get" && intent.target === "profile") return { action: "get_profile", params: intent.params };
   if (intent.action === "create" && intent.target === "post") return { action: "create_post", params: intent.params };
@@ -145,18 +180,22 @@ function buildDeterministicIntent(input: string): ParsedIntent {
     apiKey: text.match(/\bapi[-_\s]?key\s+([^\s]+)/i)?.[1] || "",
     baseUrl: text.match(/\bbase[-_\s]?url\s+([^\s]+)/i)?.[1] || "",
     model: text.match(/\bmodel\s+([a-z0-9_.:-]+)/i)?.[1] || "",
-    provider: text.match(/\bprovider\s+(ollama|openai)/i)?.[1]?.toLowerCase() || "",
+    provider: text.match(/\bprovider\s+(ollama|openai|openrouter|xai|grok)/i)?.[1]?.toLowerCase() || "",
     id: text.match(/\breplay\s+([a-z0-9-]+)/i)?.[1] || "",
     limit: text.match(/\blimit\s+(\d+)/i)?.[1] || "20",
     message: extractQuoted(text) || "",
     pageId: text.match(/\bpage\s+([a-z0-9_]+)/i)?.[1] || "",
     adAccountId: text.match(/\baccount\s+([a-z0-9_]+)/i)?.[1] || "",
     phone: extractPhone(text) || "",
+    topic: detectGuideTopic(text) || "",
     fields: "id,name"
   };
 
   if (action === "onboard") {
     return { action, params: { ...params } };
+  }
+  if (action === "guide") {
+    return { action, params: { topic: params.topic || "setup-auth" } };
   }
   if (action === "help" || action === "doctor" || action === "status" || action === "config") {
     return { action, params: {} };
@@ -208,6 +247,7 @@ export async function parseNaturalLanguageWithOptionalAi(input: string): Promise
   const raw = String(input || "").trim();
   const explicitAi = raw.toLowerCase().startsWith("/ai ");
   const cleanInput = explicitAi ? raw.slice(4).trim() : raw;
+  const deterministic = parseNaturalLanguage(cleanInput);
   const autoAiEnabled = !/^(0|false|off|no)$/i.test(String(process.env.SOCIAL_TUI_AI_AUTO || "1"));
   const configuredProvider = normalizeAiProvider(
     process.env.SOCIAL_TUI_AI_PROVIDER
@@ -225,15 +265,15 @@ export async function parseNaturalLanguageWithOptionalAi(input: string): Promise
   const needsApiKey = configuredProvider !== "ollama";
   const shouldUseAi = explicitAi || (autoAiEnabled && (!needsApiKey || hasApiKey));
   if (!cleanInput) {
-    return parseNaturalLanguage(cleanInput);
+    return deterministic;
   }
   if (!shouldUseAi) {
-    return parseNaturalLanguage(cleanInput);
+    return deterministic;
   }
 
   const { aiPath, configPath } = resolveParserModules();
   if (!aiPath || !configPath) {
-    return parseNaturalLanguage(cleanInput);
+    return deterministic;
   }
 
   try {
@@ -261,13 +301,22 @@ export async function parseNaturalLanguageWithOptionalAi(input: string): Promise
 
     const aiIntent = await aiMod.parseIntentWithAi(cleanInput, { provider, model, baseUrl, apiKey });
     const mapped = normalizeIntent(toParsedIntentFromCore(aiIntent));
-    return finalize({
+    const aiResult = finalize({
       ...validateIntent(mapped),
       source: "ai",
       inputText: cleanInput
     });
+
+    if (deterministic.intent.action === "guide" && aiResult.intent.action !== "guide") {
+      return deterministic;
+    }
+    if (aiResult.intent.action === "unknown" && deterministic.intent.action !== "unknown") {
+      return deterministic;
+    }
+
+    return aiResult;
   } catch {
-    return parseNaturalLanguage(cleanInput);
+    return deterministic;
   }
 }
 

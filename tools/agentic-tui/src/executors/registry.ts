@@ -200,6 +200,75 @@ const executors: Record<ParsedIntent["action"], RegisteredExecutor> = {
       };
     }
   },
+  guide: {
+    action: "guide",
+    risk: "LOW",
+    execute: async (intent) => {
+      const topic = String(intent.params.topic || "setup-auth").toLowerCase();
+      const guides: Record<string, { label: string; message: string; suggestions: string[] }> = {
+        "setup-auth": {
+          label: "Setup/Auth",
+          message: "I can walk you through token + app credential setup with minimum friction.",
+          suggestions: [
+            "social start-here",
+            "social setup",
+            "social auth login -a facebook",
+            "social status"
+          ]
+        },
+        facebook: {
+          label: "Facebook",
+          message: "I can help with Page profile checks and posting shortcuts.",
+          suggestions: [
+            "get my facebook profile",
+            "create post \"Hello\" page 12345",
+            "social facebook pages --table"
+          ]
+        },
+        instagram: {
+          label: "Instagram",
+          message: "I can guide account/media actions and insights checks.",
+          suggestions: [
+            "social insta accounts list",
+            "social instagram media --help",
+            "/ai list instagram media"
+          ]
+        },
+        waba: {
+          label: "WhatsApp/WABA",
+          message: "I can guide Cloud API setup, webhook checks, and template send tests.",
+          suggestions: [
+            "social integrations connect waba",
+            "social waba send --help",
+            "/ai send whatsapp test to +15551234567"
+          ]
+        },
+        marketing: {
+          label: "Marketing API",
+          message: "I can help with ad account diagnostics and campaign visibility.",
+          suggestions: [
+            "list ads account act_123",
+            "social marketing accounts",
+            "/ai show active campaigns for act_123"
+          ]
+        }
+      };
+      const chosen = guides[topic] || guides["setup-auth"];
+      return {
+        ok: true,
+        output: {
+          topic,
+          label: chosen.label,
+          message: chosen.message,
+          suggestions: chosen.suggestions
+        },
+        rollback: {
+          note: "Read-only guidance action. No rollback required.",
+          status: "DONE"
+        }
+      };
+    }
+  },
   help: {
     action: "help",
     risk: "LOW",

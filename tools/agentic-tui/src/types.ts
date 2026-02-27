@@ -1,5 +1,6 @@
 export type ActionType =
   | "onboard"
+  | "guide"
   | "help"
   | "doctor"
   | "status"

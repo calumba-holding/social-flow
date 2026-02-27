@@ -103,7 +103,6 @@ function registerExplainCommand(program) {
   program
     .command('explain [topic]')
     .alias('simple')
-    .alias('start-here')
     .description('Explain command syntax and show low-cognitive-load starter bundles')
     .option('--json', 'Output explainer content as JSON')
     .action((rawTopic, opts) => {
@@ -128,7 +127,7 @@ function registerExplainCommand(program) {
       if (topic === 'all' || topic === 'insta') printSection('Instagram Bundle', data.insta);
       if (topic === 'all' || topic === 'waba') printSection('WhatsApp/WABA Bundle', data.waba);
 
-      console.log(chalk.gray(`Next step: ${mint('social explain starter')} or ${mint('social guide')}`));
+      console.log(chalk.gray(`Next step: ${mint('social start-here')} for guided setup, or ${mint('social guide')}`));
       console.log('');
     });
 }

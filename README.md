@@ -50,17 +50,11 @@ What installer does:
 ## Quick Start
 
 ```bash
-# 1) Authenticate
-social auth login -a facebook
+# 1) Unified first run (AI provider + setup + health)
+social start-here
 
-# 2) Check setup health
-social doctor
-
-# 3) Query test
-social query me --api facebook
-
-# 4) Start gateway
-social gateway
+# 2) Open conversational control plane
+social hatch
 ```
 
 If `social` is not recognized in your current terminal, open a new terminal and retry.

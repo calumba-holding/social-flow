@@ -46,5 +46,23 @@ export const parserIntentTests: TuiTestCase[] = [
       assert.equal(parsed.intent.action, "help");
       assert.equal(parsed.valid, true);
     }
+  },
+  {
+    name: "waba setup request maps to guide intent",
+    fn: () => {
+      const parsed = parseNaturalLanguage("waba setup");
+      assert.equal(parsed.intent.action, "guide");
+      assert.equal(parsed.intent.params.topic, "waba");
+      assert.equal(parsed.valid, true);
+    }
+  },
+  {
+    name: "auth-style request maps to setup/auth guide",
+    fn: () => {
+      const parsed = parseNaturalLanguage("help me configure app id and token");
+      assert.equal(parsed.intent.action, "guide");
+      assert.equal(parsed.intent.params.topic, "setup-auth");
+      assert.equal(parsed.valid, true);
+    }
   }
 ];

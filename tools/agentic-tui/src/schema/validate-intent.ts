@@ -2,6 +2,7 @@ import type { ParseResult, ParsedIntent } from "../types.js";
 
 const ALLOWED_ACTIONS = new Set([
   "onboard",
+  "guide",
   "help",
   "doctor",
   "status",
@@ -17,6 +18,7 @@ const ALLOWED_ACTIONS = new Set([
 
 const REQUIRED_PARAMS: Record<string, string[]> = {
   onboard: ["token"],
+  guide: [],
   help: [],
   doctor: [],
   status: [],
