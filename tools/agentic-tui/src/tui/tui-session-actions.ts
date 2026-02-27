@@ -30,6 +30,31 @@ export async function loadConfigSnapshot(): Promise<ConfigSnapshot> {
   const cfgPath = path.join(os.homedir(), ".social-cli", "config.json");
   const raw = await readFile(cfgPath, "utf8");
   const parsed = JSON.parse(raw) as {
+    activeProfile?: string;
+    profiles?: Record<string, {
+      apiVersion?: string;
+      tokens?: {
+        facebook?: string;
+        instagram?: string;
+        whatsapp?: string;
+      };
+      defaults?: {
+        facebookPageId?: string;
+        marketingAdAccountId?: string;
+      };
+      region?: {
+        country?: string;
+        timezone?: string;
+      };
+      industry?: {
+        mode?: string;
+        selected?: string;
+        source?: string;
+        confidence?: number;
+        manualLocked?: boolean;
+      };
+      scopes?: string[];
+    }>;
     token?: string;
     tokens?: {
       facebook?: string;
@@ -40,19 +65,52 @@ export async function loadConfigSnapshot(): Promise<ConfigSnapshot> {
     scopes?: string[];
     defaultPageId?: string;
     defaultAdAccountId?: string;
+    industry?: {
+      mode?: string;
+      selected?: string;
+      source?: string;
+      confidence?: number;
+      manualLocked?: boolean;
+    };
   };
+
+  const activeProfile = String(parsed?.activeProfile || "default").trim() || "default";
+  const profileDoc = parsed?.profiles && typeof parsed.profiles === "object"
+    ? parsed.profiles[activeProfile]
+    : undefined;
+
+  const profileTokens = profileDoc?.tokens || {};
+  const flatTokens = parsed?.tokens || {};
   const tokenMap = {
-    facebook: !!parsed?.tokens?.facebook || !!parsed?.token,
-    instagram: !!parsed?.tokens?.instagram,
-    whatsapp: !!parsed?.tokens?.whatsapp
+    facebook: !!profileTokens.facebook || !!flatTokens.facebook || !!parsed?.token,
+    instagram: !!profileTokens.instagram || !!flatTokens.instagram,
+    whatsapp: !!profileTokens.whatsapp || !!flatTokens.whatsapp
   };
+
+  const profileIndustry = profileDoc?.industry || parsed?.industry || {};
+  const profileDefaults = profileDoc?.defaults || {};
+  const graphVersion = profileDoc?.apiVersion || parsed?.graphVersion || "v20.0";
+  const scopes = Array.isArray(profileDoc?.scopes)
+    ? profileDoc.scopes.map((x) => String(x))
+    : Array.isArray(parsed?.scopes)
+      ? parsed.scopes.map((x) => String(x))
+      : [];
+
   return {
+    activeProfile,
     tokenSet: tokenMap.facebook || tokenMap.instagram || tokenMap.whatsapp,
-    graphVersion: parsed.graphVersion || "v20.0",
-    scopes: Array.isArray(parsed.scopes) ? parsed.scopes.map((x) => String(x)) : [],
+    graphVersion,
+    scopes,
     tokenMap,
-    defaultPageId: parsed.defaultPageId,
-    defaultAdAccountId: parsed.defaultAdAccountId
+    defaultPageId: String(profileDefaults.facebookPageId || parsed.defaultPageId || "").trim() || undefined,
+    defaultAdAccountId: String(profileDefaults.marketingAdAccountId || parsed.defaultAdAccountId || "").trim() || undefined,
+    industry: {
+      mode: String(profileIndustry.mode || "hybrid"),
+      selected: String(profileIndustry.selected || ""),
+      source: String(profileIndustry.source || ""),
+      confidence: Number(profileIndustry.confidence || 0) || 0,
+      manualLocked: Boolean(profileIndustry.manualLocked)
+    }
   };
 }
 

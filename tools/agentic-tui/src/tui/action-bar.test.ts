@@ -26,7 +26,7 @@ export const actionBarTests: TuiTestCase[] = [
       });
       assert.match(hint, /status/i);
       assert.match(hint, /doctor/i);
-      assert.match(hint, /what can you do/i);
+      assert.match(hint, /ask naturally/i);
     }
   },
   {

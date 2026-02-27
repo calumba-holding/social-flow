@@ -84,12 +84,12 @@ function hasAny(text: string, needles: string[]): boolean {
 
 export function detectDomainSkill(input: string, action: ActionType): DomainSkillProfile {
   const text = String(input || "").trim().toLowerCase();
+  const hasPhoneNumber = /\+?\d[\d -]{7,}\d/.test(text);
+  const hasMessageVerb = hasAny(text, ["send", "msg", "message", "text", "ping"]);
+  const hasWabaLanguage = hasAny(text, ["whatsapp", " waba", "waba ", "template", "phone number id", "webhook"]);
 
-  if (action === "onboard") return DOMAIN_SKILLS["setup-auth"];
-  if (action === "create_post" || action === "get_profile") return DOMAIN_SKILLS.facebook;
-  if (action === "list_ads") return DOMAIN_SKILLS.marketing;
-
-  if (hasAny(text, ["whatsapp", " waba", "waba ", "template", "phone number id", "webhook"])) {
+  // Explicit WhatsApp cues should override any action misclassification from parser/AI.
+  if (hasWabaLanguage || (hasPhoneNumber && hasMessageVerb)) {
     return DOMAIN_SKILLS.waba;
   }
 
@@ -108,6 +108,10 @@ export function detectDomainSkill(input: string, action: ActionType): DomainSkil
   if (hasAny(text, ["setup", "onboard", "auth", "token", "app id", "app secret", "credential", "login"])) {
     return DOMAIN_SKILLS["setup-auth"];
   }
+
+  if (action === "onboard") return DOMAIN_SKILLS["setup-auth"];
+  if (action === "create_post" || action === "get_profile") return DOMAIN_SKILLS.facebook;
+  if (action === "list_ads") return DOMAIN_SKILLS.marketing;
 
   return DOMAIN_SKILLS.general;
 }

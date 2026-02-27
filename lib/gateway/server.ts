@@ -97,6 +97,21 @@ function configSnapshot() {
       whatsappPhoneNumberId: typeof config.getDefaultWhatsAppPhoneNumberId === 'function' ? config.getDefaultWhatsAppPhoneNumberId() : '',
       marketingAdAccountId: typeof config.getDefaultMarketingAdAccountId === 'function' ? config.getDefaultMarketingAdAccountId() : ''
     },
+    industry: typeof config.getIndustryConfig === 'function'
+      ? config.getIndustryConfig({
+        accountId: typeof config.getDefaultMarketingAdAccountId === 'function'
+          ? config.getDefaultMarketingAdAccountId()
+          : ''
+      })
+      : {
+        mode: 'hybrid',
+        selected: '',
+        source: '',
+        confidence: 0,
+        detectorVersion: '',
+        detectedAt: '',
+        manualLocked: false
+      },
     region: typeof config.getRegionConfig === 'function'
       ? config.getRegionConfig()
       : { country: '', timezone: '', regulatoryMode: 'standard' }

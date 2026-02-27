@@ -213,10 +213,24 @@ function registerStartHereCommand(program) {
       setupArgs.push('--host', String(opts.host || defaultHost));
       setupArgs.push('--port', String(opts.port || defaultPort));
 
-      console.log(chalk.cyan('[1/2] Running guided setup\n'));
+      console.log(chalk.cyan('[1/3] Running guided setup\n'));
       await runSubprocess(setupArgs);
 
-      console.log(chalk.cyan('[2/2] Verifying runtime + readiness\n'));
+      console.log(chalk.cyan('[2/3] Detecting industry mode\n'));
+      const detectSpinner = makeSpinner('Detecting best-fit industry profile...');
+      try {
+        const detectArgs = ['industry', 'detect', '--yes'];
+        const accountHint = String(config.getDefaultMarketingAdAccountId() || '').trim();
+        if (accountHint) detectArgs.push('--account', accountHint);
+        const detectOut = await runSubprocess(detectArgs, { capture: true });
+        if (detectSpinner) detectSpinner.succeed('Industry detection step complete');
+        flushCaptured(detectOut);
+      } catch (error) {
+        if (detectSpinner) detectSpinner.fail('Industry detection skipped');
+        flushCaptured(error);
+      }
+
+      console.log(chalk.cyan('[3/3] Verifying runtime + readiness\n'));
       const verifySpinner = makeSpinner('Checking runtime + readiness...');
       try {
         const verifyOut = await runSubprocess(['status'], { capture: true });

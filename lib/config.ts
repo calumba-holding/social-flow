@@ -34,6 +34,31 @@ function sanitizeProfileName(name) {
   return safe || 'default';
 }
 
+const INDUSTRY_IDS = ['real_estate', 'ecommerce', 'edtech', 'healthcare', 'local_services'];
+const INDUSTRY_MODES = ['hybrid', 'auto', 'manual'];
+
+function normalizeIndustryId(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (['real_estate', 'real-estate', 'realestate', 'property'].includes(raw)) return 'real_estate';
+  if (['ecommerce', 'e-commerce', 'commerce'].includes(raw)) return 'ecommerce';
+  if (['edtech', 'education', 'course', 'courses'].includes(raw)) return 'edtech';
+  if (['healthcare', 'clinic', 'health'].includes(raw)) return 'healthcare';
+  if (['local_services', 'local', 'services'].includes(raw)) return 'local_services';
+  return INDUSTRY_IDS.includes(raw) ? raw : '';
+}
+
+function normalizeIndustryMode(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return INDUSTRY_MODES.includes(raw) ? raw : 'hybrid';
+}
+
+function sanitizeAdAccountId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return raw.replace(/[^a-zA-Z0-9._:-]/g, '');
+}
+
 class ConfigManager {
   constructor() {
     // Allow overriding config location for CI/tests or portable setups.
@@ -97,6 +122,16 @@ class ConfigManager {
       onboarding: {
         completedAt: '',
         version: ''
+      },
+      industry: {
+        mode: 'hybrid',
+        selected: '',
+        source: '',
+        confidence: 0,
+        detectorVersion: '',
+        detectedAt: '',
+        manualLocked: false,
+        accountOverrides: {}
       }
     };
   }
@@ -125,6 +160,14 @@ class ConfigManager {
       app: { ...d.app, ...(p.app || {}) },
       defaults: { ...d.defaults, ...(p.defaults || {}) },
       region: { ...d.region, ...(p.region || {}) },
+      industry: {
+        ...d.industry,
+        ...(p.industry || {}),
+        accountOverrides: {
+          ...(d.industry || {}).accountOverrides,
+          ...(((p.industry || {}).accountOverrides) || {})
+        }
+      },
       integrations: {
         ...d.integrations,
         ...(p.integrations || {}),
@@ -470,6 +513,138 @@ class ConfigManager {
     };
   }
 
+  _normalizeIndustryState(input = {}) {
+    const selected = normalizeIndustryId(input.selected || input.industry || '');
+    const sourceRaw = String(input.source || '').trim().toLowerCase();
+    const source = ['manual', 'auto'].includes(sourceRaw) ? sourceRaw : '';
+    const detectorVersion = String(input.detectorVersion || '').trim();
+    const detectedAt = String(input.detectedAt || '').trim();
+    const confidenceNum = Number(input.confidence);
+    const confidence = Number.isFinite(confidenceNum)
+      ? Math.max(0, Math.min(1, Number(confidenceNum.toFixed(3))))
+      : 0;
+    return {
+      selected,
+      source,
+      confidence,
+      detectorVersion,
+      detectedAt,
+      manualLocked: Boolean(input.manualLocked)
+    };
+  }
+
+  _rawIndustryProfile() {
+    const p = this._profile();
+    const next = {
+      ...(p.industry || {}),
+      mode: normalizeIndustryMode((p.industry || {}).mode || 'hybrid'),
+      accountOverrides: { ...(((p.industry || {}).accountOverrides) || {}) }
+    };
+    p.industry = next;
+    return next;
+  }
+
+  getIndustryConfig(options = {}) {
+    const profileIndustry = this._rawIndustryProfile();
+    const base = this._normalizeIndustryState(profileIndustry);
+    const mode = normalizeIndustryMode(profileIndustry.mode || 'hybrid');
+    const accountOverrides = profileIndustry.accountOverrides || {};
+    const accountId = sanitizeAdAccountId(options.accountId || '');
+    const override = accountId ? this._normalizeIndustryState(accountOverrides[accountId] || {}) : null;
+    const effective = override && (override.selected || override.manualLocked || override.source)
+      ? override
+      : base;
+    return {
+      mode,
+      selected: effective.selected || '',
+      source: effective.source || '',
+      confidence: effective.confidence || 0,
+      detectorVersion: effective.detectorVersion || '',
+      detectedAt: effective.detectedAt || '',
+      manualLocked: Boolean(effective.manualLocked),
+      accountId,
+      hasOverride: Boolean(accountId && override && (override.selected || override.manualLocked || override.source)),
+      accountOverridesCount: Object.keys(accountOverrides).length
+    };
+  }
+
+  setIndustryMode(mode) {
+    const profileIndustry = this._rawIndustryProfile();
+    profileIndustry.mode = normalizeIndustryMode(mode);
+    this._save();
+    return this.getIndustryConfig();
+  }
+
+  setIndustryDetection(input = {}, options = {}) {
+    const profileIndustry = this._rawIndustryProfile();
+    const accountId = sanitizeAdAccountId(options.accountId || '');
+    const next = this._normalizeIndustryState({
+      selected: input.selected || input.industry || '',
+      source: 'auto',
+      confidence: input.confidence,
+      detectorVersion: input.detectorVersion,
+      detectedAt: input.detectedAt || new Date().toISOString(),
+      manualLocked: Boolean(input.manualLocked)
+    });
+    if (accountId) {
+      profileIndustry.accountOverrides = profileIndustry.accountOverrides || {};
+      profileIndustry.accountOverrides[accountId] = next;
+    } else {
+      profileIndustry.selected = next.selected;
+      profileIndustry.source = next.source;
+      profileIndustry.confidence = next.confidence;
+      profileIndustry.detectorVersion = next.detectorVersion;
+      profileIndustry.detectedAt = next.detectedAt;
+      profileIndustry.manualLocked = next.manualLocked;
+    }
+    this._save();
+    return this.getIndustryConfig({ accountId });
+  }
+
+  setIndustryManual(industry, options = {}) {
+    const profileIndustry = this._rawIndustryProfile();
+    const accountId = sanitizeAdAccountId(options.accountId || '');
+    const next = this._normalizeIndustryState({
+      selected: industry,
+      source: 'manual',
+      confidence: 1,
+      detectorVersion: 'manual',
+      detectedAt: new Date().toISOString(),
+      manualLocked: true
+    });
+    if (!next.selected) throw new Error(`Unsupported industry: ${String(industry || '').trim()}`);
+    if (accountId) {
+      profileIndustry.accountOverrides = profileIndustry.accountOverrides || {};
+      profileIndustry.accountOverrides[accountId] = next;
+    } else {
+      profileIndustry.selected = next.selected;
+      profileIndustry.source = next.source;
+      profileIndustry.confidence = next.confidence;
+      profileIndustry.detectorVersion = next.detectorVersion;
+      profileIndustry.detectedAt = next.detectedAt;
+      profileIndustry.manualLocked = true;
+    }
+    this._save();
+    return this.getIndustryConfig({ accountId });
+  }
+
+  unlockIndustry(options = {}) {
+    const profileIndustry = this._rawIndustryProfile();
+    const accountId = sanitizeAdAccountId(options.accountId || '');
+    if (accountId) {
+      profileIndustry.accountOverrides = profileIndustry.accountOverrides || {};
+      const current = this._normalizeIndustryState(profileIndustry.accountOverrides[accountId] || {});
+      profileIndustry.accountOverrides[accountId] = {
+        ...current,
+        manualLocked: false
+      };
+    } else {
+      profileIndustry.manualLocked = false;
+    }
+    this._save();
+    return this.getIndustryConfig({ accountId });
+  }
+
   setRegionConfig(patch = {}) {
     const p = this._profile();
     const next = { ...this.getRegionConfig(), ...(patch || {}) };
@@ -569,6 +744,7 @@ class ConfigManager {
     const app = { appId: (p.app || {}).id || '', appSecret: (p.app || {}).secret || '' };
     const operator = this.getOperator();
     const region = this.getRegionConfig();
+    const industry = this.getIndustryConfig();
 
     const summaryRows = [
       kv('Config file', chalk.gray(this.getConfigPath()), { labelWidth: 15 }),
@@ -617,6 +793,14 @@ class ConfigManager {
       kv('Policy Profile', chalk.cyan(region.policyProfile), { labelWidth: 16 })
     ];
 
+    const industryRows = [
+      kv('Mode', chalk.cyan(industry.mode), { labelWidth: 16 }),
+      kv('Selected', industry.selected ? chalk.cyan(industry.selected) : '', { labelWidth: 16 }),
+      kv('Source', industry.source ? chalk.cyan(industry.source) : '', { labelWidth: 16 }),
+      kv('Confidence', industry.confidence ? chalk.cyan(String(industry.confidence)) : '', { labelWidth: 16 }),
+      kv('Manual Lock', industry.manualLocked ? formatBadge('ON', { tone: 'warn' }) : formatBadge('OFF', { tone: 'success' }), { labelWidth: 16 })
+    ];
+
     console.log('');
     console.log(renderPanel({
       title: ' Configuration Snapshot ',
@@ -655,6 +839,14 @@ class ConfigManager {
       rows: regionRows,
       minWidth: 78,
       borderColor: (value) => chalk.yellow(value)
+    }));
+    console.log('');
+
+    console.log(renderPanel({
+      title: ' Industry ',
+      rows: industryRows,
+      minWidth: 78,
+      borderColor: (value) => chalk.hex('#66FFCC')(value)
     }));
     console.log('');
   }

@@ -38,5 +38,19 @@ export const domainSkillTests: TuiTestCase[] = [
       const skill = detectDomainSkill("help me setup token and app secret", "unknown");
       assert.equal(skill.id, "setup-auth");
     }
+  },
+  {
+    name: "whatsapp wording overrides create_post action misclassification",
+    fn: () => {
+      const skill = detectDomainSkill("send whatsapp msg to +919820056180", "create_post");
+      assert.equal(skill.id, "waba");
+    }
+  },
+  {
+    name: "phone number + message intent routes to waba without keyword",
+    fn: () => {
+      const skill = detectDomainSkill("send msg to +919820056180", "create_post");
+      assert.equal(skill.id, "waba");
+    }
   }
 ];

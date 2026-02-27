@@ -375,11 +375,8 @@ function HatchRuntime(): JSX.Element {
     if (state.showDetails) {
       await streamAssistantTurn(`skill_route: ${domainSkill.id}`);
       await streamAssistantTurn(formatToolCall(parsed.intent));
-    } else {
-      if (domainSkill.id !== "general") {
-        await streamAssistantTurn(`Routing to ${domainSkill.name} skill.`);
-      }
       await streamAssistantTurn(`Understood. I can ${describeAction(parsed.intent.action)}.`);
+      await streamAssistantTurn(summarizeIntent(parsed.intent, parsedRisk, parsed.missingSlots));
     }
     dispatch({
       type: "PARSE_READY",
@@ -387,26 +384,25 @@ function HatchRuntime(): JSX.Element {
       risk: parsedRisk,
       missingSlots: parsed.missingSlots
     });
-    await streamAssistantTurn(
-      state.showDetails
-        ? summarizeIntent(parsed.intent, parsedRisk, parsed.missingSlots)
-        : `Proposed action: ${parsed.intent.action} (${parsedRisk.toLowerCase()} risk).`
-    );
 
     if (!parsed.valid) {
       dispatch({ type: "LOG_ADD", entry: newLog("WARN", parsed.errors.join("; ") || "Intent parsed with warnings.") });
     }
     if (parsed.missingSlots.length > 0) {
-      addTurn("assistant", `I need these fields: ${parsed.missingSlots.join(", ")}. Press e to edit slots.`);
+      await streamAssistantTurn(`I need these fields: ${parsed.missingSlots.join(", ")}. Press e to edit slots.`);
       return;
     }
     if (parsedRisk === "LOW") {
       dispatch({ type: "APPROVED", auto: true });
-      await streamAssistantTurn("Low-risk action. Auto-executing.");
+      if (state.showDetails) await streamAssistantTurn("Low-risk action. Auto-executing.");
       await runExecution(parsed.intent);
       return;
     }
-    await streamAssistantTurn("Awaiting approval. Press Enter or a to continue.");
+    await streamAssistantTurn(
+      state.showDetails
+        ? "Awaiting approval. Press Enter or a to continue."
+        : `Ready to run ${parsed.intent.action} (${parsedRisk.toLowerCase()} risk). Press Enter to confirm, or e to edit.`
+    );
   }, [addTurn, runExecution, state.currentIntent, state.currentRisk, state.showDetails, streamAssistantTurn, streamPhase]);
 
   const confirmOrExecute = useCallback(async (): Promise<void> => {
@@ -594,6 +590,9 @@ function HatchRuntime(): JSX.Element {
             : "n/a"
   );
   const aiLabel = `${aiProvider}/${aiModel}`;
+  const industryMode = String(config?.industry?.mode || "hybrid");
+  const industrySelected = String(config?.industry?.selected || "").trim();
+  const industryLabel = industrySelected || `${industryMode} (auto)`;
   const riskTone = state.currentRisk === "HIGH" ? theme.error : state.currentRisk === "MEDIUM" ? theme.warning : theme.success;
   const phaseTone = state.phase === "EXECUTING" ? theme.accent : state.phase === "REJECTED" ? theme.warning : theme.text;
   const topActivity = state.liveLogs[state.liveLogs.length - 1];
@@ -621,7 +620,7 @@ function HatchRuntime(): JSX.Element {
   return (
     <Box flexDirection="column">
       <Text color={theme.accent}>
-        Social Flow Hatch | runtime {runtimeLabel} | phase {state.phase.toLowerCase()} | risk {(state.currentRisk || "LOW").toLowerCase()} | account {selectedAccount} | ai {aiLabel} | connected {connectedCount}/3
+        Social Flow Hatch | runtime {runtimeLabel} | phase {state.phase.toLowerCase()} | risk {(state.currentRisk || "LOW").toLowerCase()} | account {selectedAccount} | industry {industryLabel} | ai {aiLabel} | connected {connectedCount}/3
       </Text>
       <Text color={theme.muted}>
         latest: {topActivity ? `${shortTime(topActivity.at)} ${topActivity.message.slice(0, 72)}` : "idle"}

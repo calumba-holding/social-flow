@@ -73,5 +73,14 @@ export const parserIntentTests: TuiTestCase[] = [
       assert.equal(parsed.intent.params.topic, "instagram");
       assert.equal(parsed.valid, true);
     }
+  },
+  {
+    name: "send message with phone number maps to waba guide",
+    fn: () => {
+      const parsed = parseNaturalLanguage("send msg to +919820056180");
+      assert.equal(parsed.intent.action, "guide");
+      assert.equal(parsed.intent.params.topic, "waba");
+      assert.equal(parsed.valid, true);
+    }
   }
 ];

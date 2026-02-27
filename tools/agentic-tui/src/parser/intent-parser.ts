@@ -70,8 +70,10 @@ function hasAny(text: string, patterns: RegExp[]): boolean {
 
 function detectDomainTopic(input: string): string {
   const s = String(input || "").toLowerCase();
+  const hasPhoneNumber = /\+?\d[\d -]{7,}\d/.test(s);
+  const hasMessageVerb = hasAny(s, [/\bsend\b/, /\bmsg\b/, /\bmessage\b/, /\btext\b/, /\bping\b/]);
 
-  if (hasAny(s, [/\bwhatsapp\b/, /\bwaba\b/, /\btemplate\b/, /\bwebhook\b/, /\bphone number id\b/])) {
+  if (hasAny(s, [/\bwhatsapp\b/, /\bwaba\b/, /\btemplate\b/, /\bwebhook\b/, /\bphone number id\b/]) || (hasPhoneNumber && hasMessageVerb)) {
     return "waba";
   }
   if (hasAny(s, [/\binstagram\b/, /\binsta\b/, /\big\b/, /\breel\b/, /\bstory\b/, /\bmedia\b/])) {

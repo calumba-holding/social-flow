@@ -6,6 +6,7 @@ export interface ChatTurn {
 }
 
 export interface ConfigSnapshot {
+  activeProfile?: string;
   tokenSet: boolean;
   graphVersion: string;
   scopes: string[];
@@ -16,6 +17,13 @@ export interface ConfigSnapshot {
   };
   defaultPageId?: string;
   defaultAdAccountId?: string;
+  industry?: {
+    mode: string;
+    selected: string;
+    source: string;
+    confidence: number;
+    manualLocked: boolean;
+  };
 }
 
 export interface PersistedLog {

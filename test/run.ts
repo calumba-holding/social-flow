@@ -40,6 +40,7 @@ async function run() {
       'policy.test',
       'ops.test',
       'hub.test',
+      'industry.test',
       'ui-chrome.test',
       'readiness.test',
       'guidance.test'
