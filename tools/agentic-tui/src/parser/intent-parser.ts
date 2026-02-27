@@ -257,6 +257,12 @@ export async function parseNaturalLanguageWithOptionalAi(input: string): Promise
   const explicitAi = raw.toLowerCase().startsWith("/ai ");
   const cleanInput = explicitAi ? raw.slice(4).trim() : raw;
   const deterministic = parseNaturalLanguage(cleanInput);
+  const deterministicSafeReadOnly = new Set(["help", "status", "doctor", "config", "get_status"]);
+  if (!explicitAi && deterministicSafeReadOnly.has(deterministic.intent.action)) {
+    // Keep obvious conversational/read-only intents deterministic.
+    // This avoids model misclassification (e.g., greeting -> onboard).
+    return deterministic;
+  }
   const autoAiEnabled = !/^(0|false|off|no)$/i.test(String(process.env.SOCIAL_TUI_AI_AUTO || "1"));
   const configuredProvider = normalizeAiProvider(
     process.env.SOCIAL_TUI_AI_PROVIDER

@@ -17,6 +17,14 @@ export const parserIntentTests: TuiTestCase[] = [
     }
   },
   {
+    name: "casual greeting with extra words still maps to status",
+    fn: () => {
+      const parsed = parseNaturalLanguage("hi bro");
+      assert.equal(parsed.intent.action, "status");
+      assert.equal(parsed.valid, true);
+    }
+  },
+  {
     name: "capability question maps to help intent",
     fn: () => {
       const parsed = parseNaturalLanguage("what can you do");
