@@ -1,6 +1,6 @@
 {
   "name": "@vishalgojha/social-cli",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "Social Flow CLI for Meta API operations (Facebook, Instagram, WhatsApp).",
   "main": "dist-legacy/index.js",
   "bin": {
