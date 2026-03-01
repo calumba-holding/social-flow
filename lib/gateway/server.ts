@@ -37,6 +37,36 @@ function mimeFor(filePath) {
   return 'text/plain; charset=utf-8';
 }
 
+function studioAssetRoots() {
+  return [
+    path.resolve(__dirname, '..', '..', 'assets', 'studio'),
+    path.resolve(process.cwd(), 'assets', 'studio'),
+    path.resolve(process.cwd(), 'dist-legacy', 'assets', 'studio')
+  ];
+}
+
+function resolveStudioAsset(routePath) {
+  const requested = String(routePath || '/').trim();
+  const normalized = requested === '/' ? '/index.html' : path.posix.normalize(requested);
+  if (!normalized.startsWith('/')) return '';
+  if (normalized.includes('\0')) return '';
+
+  const rel = normalized.replace(/^\/+/, '');
+  if (!rel) return '';
+
+  const roots = studioAssetRoots();
+  for (const root of roots) {
+    const absoluteRoot = path.resolve(root);
+    if (!fs.existsSync(absoluteRoot) || !fs.statSync(absoluteRoot).isDirectory()) continue;
+    const candidate = path.resolve(absoluteRoot, rel);
+    if (!isPathInsideRoot(absoluteRoot, candidate)) continue;
+    if (!fs.existsSync(candidate)) continue;
+    if (!fs.statSync(candidate).isFile()) continue;
+    return candidate;
+  }
+  return '';
+}
+
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload, null, 2);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -46,6 +76,15 @@ function sendJson(res, status, payload) {
 function sendText(res, status, text, headers = {}) {
   res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', ...(headers || {}) });
   res.end(text);
+}
+
+function sendFile(res, status, filePath, headers = {}) {
+  const body = fs.readFileSync(filePath);
+  res.writeHead(status, {
+    'Content-Type': mimeFor(filePath),
+    ...(headers || {})
+  });
+  res.end(body);
 }
 
 function maskToken(token) {
@@ -2336,16 +2375,25 @@ class GatewayServer {
 
   async handleStatic(req, res, parsedUrl) {
     const route = parsedUrl.pathname || '/';
+    const staticFile = resolveStudioAsset(route);
+    if (staticFile) {
+      const isHtml = staticFile.toLowerCase().endsWith('.html');
+      sendFile(res, 200, staticFile, {
+        'Cache-Control': isHtml ? 'no-store' : 'public, max-age=300'
+      });
+      return;
+    }
+
     if (route === '/' || route === '/index.html') {
-      sendJson(res, 410, {
+      sendJson(res, 503, {
         ok: false,
-        error: 'Bundled LOCALHOST GATEWAY frontend has been removed. This gateway now serves API/WebSocket only.'
+        error: 'Bundled Studio assets are missing. Run `npm run build:legacy-ts` and retry.'
       });
       return;
     }
     sendJson(res, 404, {
       ok: false,
-      error: 'Route not found. Use /api/* endpoints.'
+      error: 'Route not found. Use / (Studio) or /api/* endpoints.'
     });
   }
 

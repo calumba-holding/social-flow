@@ -10,10 +10,9 @@ social gateway
 
 `social gateway` runs a local HTTP server that provides:
 
+- a bundled Social Studio UI at `/`
 - a safe API gateway for chat operations
 - a WebSocket stream for live events
-
-Bundled `LOCALHOST GATEWAY` frontend UI has been removed from this repo.
 
 Supported workflow categories:
 

@@ -164,28 +164,29 @@ module.exports = [
     }
   },
   {
-    name: 'gateway root endpoint reports bundled frontend removal',
+    name: 'gateway root endpoint serves bundled studio ui',
     fn: async () => {
       const oldHome = process.env.META_CLI_HOME;
       process.env.META_CLI_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-gw-test-'));
       const server = createGatewayServer({ host: '127.0.0.1', port: 0 });
       try {
         await server.start();
-        const root = await requestJson({
+        const root = await requestRaw({
           port: server.port,
           method: 'GET',
           pathName: '/'
         });
-        assert.equal(root.status, 410);
-        assert.equal(root.data.ok, false);
-        assert.equal(String(root.data.error || '').toLowerCase().includes('frontend has been removed'), true);
+        assert.equal(root.status, 200);
+        assert.equal(String(root.headers['content-type'] || '').includes('text/html'), true);
+        assert.equal(String(root.raw || '').toLowerCase().includes('social studio'), true);
 
-        const missingStatic = await requestJson({
+        const staticCss = await requestRaw({
           port: server.port,
           method: 'GET',
-          pathName: '/index.html'
+          pathName: '/styles.css'
         });
-        assert.equal(missingStatic.status, 410);
+        assert.equal(staticCss.status, 200);
+        assert.equal(String(staticCss.headers['content-type'] || '').includes('text/css'), true);
       } finally {
         await server.stop();
         process.env.META_CLI_HOME = oldHome;

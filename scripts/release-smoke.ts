@@ -13,6 +13,12 @@ type JsonResponse = {
   data: Record<string, unknown>;
 };
 
+type RawResponse = {
+  status: number | undefined;
+  body: string;
+  contentType: string;
+};
+
 function requestJson({ port, method, pathName }: {
   port: number;
   method: string;
@@ -37,6 +43,33 @@ function requestJson({ port, method, pathName }: {
           data = {};
         }
         resolve({ status: res.statusCode, data });
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function requestRaw({ port, method, pathName }: {
+  port: number;
+  method: string;
+  pathName: string;
+}): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: pathName,
+      method
+    }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode,
+          body: Buffer.concat(chunks).toString('utf8'),
+          contentType: String(res.headers['content-type'] || '')
+        });
       });
     });
     req.on('error', reject);
@@ -73,14 +106,14 @@ async function runGatewaySmoke() {
     assert.equal(health.status, 200);
     assert.equal(health.data.ok, true);
 
-    const root = await requestJson({
+    const root = await requestRaw({
       port: server.port,
       method: 'GET',
       pathName: '/'
     });
-    assert.equal(root.status, 410);
-    assert.equal(root.data.ok, false);
-    assert.match(String(root.data.error || ''), /frontend has been removed/i);
+    assert.equal(root.status, 200);
+    assert.match(root.contentType, /text\/html/i);
+    assert.match(root.body, /Social Studio/i);
   } finally {
     await server.stop();
     if (oldMetaHome === undefined) delete process.env.META_CLI_HOME;

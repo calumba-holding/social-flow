@@ -2,7 +2,7 @@
 
 ![Social Flow Mint Logo](docs/assets/social-flow-logo-mint.svg)
 
-An agentic operations platform for Meta APIs (Facebook, Instagram, WhatsApp, and Marketing API), with a terminal command surface, API/WebSocket gateway, and external frontend support.
+An agentic operations platform for Meta APIs (Facebook, Instagram, WhatsApp, and Marketing API), with a terminal command surface, a bundled Studio UI, and an API/WebSocket gateway.
 
 Built for developers and agencies that want one consistent system for auth, execution, analytics, and guarded automation.
 
@@ -22,8 +22,8 @@ railway up
 - Profile-based multi-account workflows
 - Deterministic commands for posting/querying/marketing
 - Agent + chat workflows with risk-aware execution
-- API/WebSocket gateway (`social gateway`) for local and remote operation
-- External frontend integration using secured gateway access (`x-gateway-key`)
+- Bundled Studio UI + API/WebSocket gateway (`social gateway`) for local and remote operation
+- External frontend integration option using secured gateway access (`x-gateway-key`)
 - Ops control-plane commands for approvals, invites, handoff, and runbooks
 
 ## Install
@@ -68,7 +68,7 @@ If `social` is not recognized in your current terminal, open a new terminal and 
 
 ## Railway + Frontend (Agentic)
 
-- Deploy gateway on Railway (API/WebSocket only, no bundled web UI)
+- Deploy gateway on Railway (bundled Studio is available at `/` plus API/WebSocket routes)
 - Set `SOCIAL_GATEWAY_API_KEY` and `SOCIAL_GATEWAY_CORS_ORIGINS`
 - Connect your frontend with `x-gateway-key` header on REST and `?gatewayKey=` on `/ws`
 - Optional launcher:

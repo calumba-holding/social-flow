@@ -242,13 +242,13 @@ program.on('--help', () => {
   console.log(`  ${cmd('chat')}                    ` + chalk.gray('# Conversational multi-turn AI assistant'));
   console.log(`  ${cmd('tui')}                     ` + chalk.gray('# Agentic terminal dashboard (chat + approvals + replay)'));
   console.log(`  ${cmd('hatch')}                   ` + chalk.gray('# Alias of tui (terminal agent chat)'));
-  console.log(`  ${cmd('gateway')}                 ` + chalk.gray('# Social API Gateway (API + WebSocket only)'));
+  console.log(`  ${cmd('gateway')}                 ` + chalk.gray('# Social API Gateway + bundled Studio UI'));
   console.log(`  ${cmd('setup')}                   ` + chalk.gray('# Guided first-run setup + optional gateway start'));
   console.log(`  ${cmd('start')}                   ` + chalk.gray('# Start gateway in background with readiness checks'));
   console.log(`  ${cmd('stop')}                    ` + chalk.gray('# Stop background gateway'));
   console.log(`  ${cmd('status')}                  ` + chalk.gray('# Runtime status + setup readiness'));
   console.log(`  ${cmd('logs --lines 120')}        ` + chalk.gray('# Show gateway logs'));
-  console.log(`  ${cmd('studio')}                  ` + chalk.gray('# Launch Studio flow (ensure gateway + open status page)'));
+  console.log(`  ${cmd('studio')}                  ` + chalk.gray('# Launch Studio flow (ensure gateway + open bundled UI)'));
   console.log(`  ${cmd('studio --url https://api.example.com --frontend-url https://studio.example.com')}  ` + chalk.gray('# Open external frontend with remote gateway'));
   console.log(`  ${cmd('guide')}                   ` + chalk.gray('# Universal step-by-step guidance sequence'));
   console.log(`  ${cmd('start-here')}              ` + chalk.gray('# Unified setup: AI config + tokens + health verification'));
