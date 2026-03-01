@@ -11,8 +11,11 @@ type ReleaseArgs = {
 };
 
 const VALID_BUMPS = new Set<ReleaseArgs['bump']>(['patch', 'minor', 'major']);
-const npmCmd = 'npm';
 const gitCmd = process.platform === 'win32' ? 'git.exe' : 'git';
+const npmExecPath = String(process.env.npm_execpath || '').trim();
+const npmInvoker = (npmExecPath && fs.existsSync(npmExecPath))
+  ? { command: process.execPath, prefixArgs: [npmExecPath] }
+  : { command: (process.platform === 'win32' ? 'npm.cmd' : 'npm'), prefixArgs: [] };
 
 function usage(exitCode = 0): never {
   // eslint-disable-next-line no-console
@@ -57,6 +60,14 @@ function capture(command: string, args: string[], options: Record<string, unknow
     throw new Error(stderr || `${command} ${args.join(' ')} failed`);
   }
   return String(result.stdout || '');
+}
+
+function runNpm(args: string[]): void {
+  run(npmInvoker.command, [...npmInvoker.prefixArgs, ...args]);
+}
+
+function captureNpm(args: string[]): string {
+  return capture(npmInvoker.command, [...npmInvoker.prefixArgs, ...args]);
 }
 
 function readPackageJson(): { name: string; version: string } {
@@ -120,32 +131,32 @@ function main(): void {
 
   ensureCleanWorkingTree();
 
-  run(npmCmd, ['whoami']);
+  runNpm(['whoami']);
 
   if (!args.skipQuality) {
-    run(npmCmd, ['run', 'quality:check']);
+    runNpm(['run', 'quality:check']);
   } else {
     // eslint-disable-next-line no-console
     console.log('[release] skipping quality checks (--skip-quality)');
   }
 
   if (args.dryRun) {
-    run(npmCmd, ['pack', '--dry-run']);
+    runNpm(['pack', '--dry-run']);
     // eslint-disable-next-line no-console
     console.log('\n[release] dry-run complete (no version bump, no publish).');
     return;
   }
 
-  run(npmCmd, ['version', args.bump]);
+  runNpm(['version', args.bump]);
 
   const bumped = readPackageJson();
   const publishArgs = ['publish', '--access', 'public'];
   if (process.env.NPM_OTP) {
     publishArgs.push('--otp', process.env.NPM_OTP);
   }
-  run(npmCmd, publishArgs);
+  runNpm(publishArgs);
 
-  const publishedVersion = capture(npmCmd, ['view', bumped.name, 'version']).trim();
+  const publishedVersion = captureNpm(['view', bumped.name, 'version']).trim();
   if (publishedVersion !== bumped.version) {
     // eslint-disable-next-line no-console
     console.error(
