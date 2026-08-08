@@ -22,6 +22,7 @@
     "dist-social/**",
     "node_modules/**",
     "socialclaw-core/**",
-    "tools/agentic-tui/**"
+    "tools/agentic-tui/**",
+    "scripts/bun/**"
   ]
 }
