@@ -2,6 +2,7 @@ import type {
   RealtorBuildInput,
   RealtorCapiInput,
   RealtorCreateInput,
+  RealtorIngestInput,
   RealtorLeadFormInput,
   RealtorLeadsInput,
   RealtorPreviewInput,
@@ -190,6 +191,9 @@ export class SocialFlowClient {
   readonly realtor = {
     scopes: async () =>
       this.execute("realtor_scopes", {}),
+
+    ingest: async (input: RealtorIngestInput) =>
+      this.execute("realtor_ingest", { ...input } as Record<string, unknown>),
 
     build: async (input: RealtorBuildInput) =>
       this.execute("realtor_build", { ...input } as Record<string, unknown>),

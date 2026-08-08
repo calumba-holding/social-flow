@@ -13,7 +13,8 @@ async function loadTests() {
         "config.test",
         "playwright-runtime.test",
         "http-executor.test",
-        "realtor.test"
+        "realtor.test",
+        "realtor-ingest.test"
     ];
     const out = [];
     for (const stem of stems) {

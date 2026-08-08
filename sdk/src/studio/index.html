@@ -60,6 +60,14 @@
         <label for="realtor-text">Project Brief</label>
         <textarea id="realtor-text" rows="5" placeholder="3 BHK in Sarjapur, Bengaluru for ₹1.2 crore. Ready to move. Daily budget ₹1000. WhatsApp 9876543210."></textarea>
 
+        <div class="row">
+          <label for="realtor-ingest-url">Paste a listing URL to auto-fill the brief
+            <input id="realtor-ingest-url" type="url" placeholder="https://www.99acres.com/property/…" />
+          </label>
+          <button id="realtor-ingest" type="button" class="btn ghost">Ingest Listing</button>
+        </div>
+        <p class="muted" id="realtor-ingest-status">Scrapes the listing page (via bundled browser), extracts price/BHK/locality/possession, and fills the brief below.</p>
+
         <div class="grid-3">
           <label>
             Daily Budget (INR)

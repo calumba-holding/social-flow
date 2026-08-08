@@ -28,6 +28,7 @@ export type SdkAction =
   | "logs"
   | "replay"
   | "realtor_scopes"
+  | "realtor_ingest"
   | "realtor_build"
   | "realtor_preview"
   | "realtor_report"
@@ -105,6 +106,11 @@ export interface RealtorBriefInput {
 
 export interface RealtorBuildInput extends RealtorBriefInput {
   text?: string;
+}
+
+export interface RealtorIngestInput {
+  url: string;
+  timeoutMs?: number;
 }
 
 export interface RealtorPreviewInput extends RealtorBriefInput {

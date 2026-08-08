@@ -57,12 +57,15 @@ async function run() {
       assert.equal(actions.ok, true);
       const list = actions.data?.actions || [];
       const realtorActions = list.filter((a) => a.action.startsWith("realtor_"));
-      assert.ok(realtorActions.length >= 8);
+      assert.ok(realtorActions.length >= 9);
       const create = realtorActions.find((a) => a.action === "realtor_create_campaign");
       assert.equal(create?.risk, "HIGH");
       assert.equal(create?.requiresApproval, true);
       const build = realtorActions.find((a) => a.action === "realtor_build");
       assert.equal(build?.risk, "LOW");
+      const ingest = realtorActions.find((a) => a.action === "realtor_ingest");
+      assert.equal(ingest?.risk, "LOW");
+      assert.equal(ingest?.requiresApproval, false);
     }
 
     // Realtor build works keyless with zero config (no token needed).
@@ -143,6 +146,14 @@ async function run() {
       const plan = await client.actions.plan("realtor_capi", { eventName: "Lead", adAccountId: "act_456" });
       assert.equal(plan.ok, true);
       assert.equal(plan.data?.requiresApproval, true);
+    }
+
+    // Realtor ingest is LOW risk, keyless, and validates URL before any browser work.
+    {
+      const client = createSocialFlowClient({ baseUrl });
+      const invalid = await client.realtor.ingest({ url: "not-a-url" });
+      assert.equal(invalid.ok, false);
+      assert.match(invalid.error?.message || "", /Invalid listing URL/);
     }
 
     // Config endpoints: update defaults keylessly, persisted to file.

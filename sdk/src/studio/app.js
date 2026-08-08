@@ -13,6 +13,9 @@
     setupStatus: $("setup-status"),
     realtorForm: $("realtor-form"),
     realtorText: $("realtor-text"),
+    realtorIngestUrl: $("realtor-ingest-url"),
+    realtorIngest: $("realtor-ingest"),
+    realtorIngestStatus: $("realtor-ingest-status"),
     realtorBudget: $("realtor-budget"),
     realtorDestination: $("realtor-destination"),
     realtorStatus: $("realtor-status"),
@@ -278,6 +281,43 @@
     setStatus(missing.length ? "warn" : "ok", missing.length ? "Brief parsed. Missing: " + missing.join(", ") : "Brief parsed and complete.");
   }
 
+  async function realtorIngestListing() {
+    const url = String(nodes.realtorIngestUrl.value || "").trim();
+    if (!url) {
+      setStatus("err", "Paste a listing URL first.");
+      return;
+    }
+    nodes.realtorIngestStatus.textContent = "Scraping listing… (may take ~15s)";
+    try {
+      const out = await sdkExecute("realtor_ingest", { url: url });
+      nodes.realtorBrief.textContent = pretty({
+        source: out.source,
+        title: out.title,
+        formatted: out.formatted,
+        brief: out.brief,
+        missing: out.missing,
+        complete: out.complete,
+        primaryImage: out.primaryImage
+      });
+      if (out.brief) {
+        const brief = out.brief;
+        if (brief.message) nodes.realtorText.value = brief.message;
+        if (brief.price) nodes.realtorBudget.value = "";
+        if (brief.image) nodes.realtorImage.value = brief.image;
+        if (brief.pageId) nodes.realtorPageId.value = brief.pageId;
+        if (brief.adAccountId) nodes.realtorAdAccount.value = brief.adAccountId;
+        if (brief.whatsappNumber) nodes.realtorWhatsapp.value = brief.whatsappNumber;
+      }
+      const missing = Array.isArray(out.missing) ? out.missing : [];
+      renderCompliance(out.compliance);
+      setStatus(missing.length ? "warn" : "ok", missing.length ? "Listing ingested. Missing: " + missing.join(", ") : "Listing ingested.");
+      nodes.realtorIngestStatus.textContent = "Ingested from " + (out.source || url) + ". Review the brief, then Build/Preview/Create.";
+    } catch (error) {
+      nodes.realtorIngestStatus.textContent = "Ingest failed.";
+      throw error;
+    }
+  }
+
   async function realtorPreviewPayloads() {
     nodes.realtorPayload.textContent = "Building payloads…";
     const out = await sdkExecute("realtor_preview", realtorRequestPayload());
@@ -380,6 +420,7 @@
     nodes.refreshAll.addEventListener("click", function () { refreshHealth(); loadSetup(); loadRealtorScopes(); });
     nodes.setupForm.addEventListener("submit", saveSetup);
     nodes.realtorBuild.addEventListener("click", withActions(realtorBuildBrief, busyOf(nodes.realtorBuild)));
+    nodes.realtorIngest.addEventListener("click", withActions(realtorIngestListing, busyOf(nodes.realtorIngest)));
     nodes.realtorPreview.addEventListener("click", withActions(realtorPreviewPayloads, busyOf(nodes.realtorPreview)));
     nodes.realtorCreate.addEventListener("click", withActions(realtorCreateCampaign, busyOf(nodes.realtorCreate)));
     nodes.realtorReport.addEventListener("click", withActions(realtorFetchReport, busyOf(nodes.realtorReport)));

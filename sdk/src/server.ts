@@ -12,6 +12,7 @@ import * as realtorCampaign from "./realtor/campaign.js";
 import * as realtorReport from "./realtor/report.js";
 import * as realtorLeadForms from "./realtor/leadforms.js";
 import * as realtorCapi from "./realtor/capi.js";
+import * as realtorIngest from "./realtor/ingest.js";
 import type {
   BuildOptions,
   CampaignContext,
@@ -41,6 +42,7 @@ const SDK_ACTION_RISK: Record<string, string> = {
   logs: "LOW",
   replay: "HIGH",
   realtor_scopes: "LOW",
+  realtor_ingest: "LOW",
   realtor_build: "LOW",
   realtor_preview: "LOW",
   realtor_report: "LOW",
@@ -664,6 +666,18 @@ export class SdkStudioServer {
 
     if (normalizedAction === "realtor_scopes") {
       return realtorCompliancePayload();
+    }
+
+    if (normalizedAction === "realtor_ingest") {
+      const url = String(params.url || "").trim();
+      if (!url) throw new Error("realtor_ingest requires `url` (a property listing page).");
+      const ingest = await realtorIngest.ingestListingUrl(url, {
+        timeoutMs: toNumber(params.timeoutMs, 30_000)
+      });
+      return {
+        ...ingest,
+        compliance: realtorCompliancePayload()
+      };
     }
 
     if (normalizedAction === "realtor_build") {

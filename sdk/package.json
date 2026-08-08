@@ -19,6 +19,9 @@
     "test": "npm run build && node dist/test/client.test.js && node dist/test/server.test.js",
     "start": "node bin/social-flow-sdk.js"
   },
+  "dependencies": {
+    "playwright": "^1.58.2"
+  },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "typescript": "^5.7.2"
