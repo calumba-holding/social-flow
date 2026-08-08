@@ -19,6 +19,12 @@ const { buildReadinessReport } = require('../readiness');
 const { HostedPlatform } = require('../hosted/platform');
 const hostedStorage = require('../hosted/storage');
 const appPaths = require('../app-paths');
+const realtorBrief = require('../realtor/brief');
+const realtorCompliance = require('../realtor/compliance');
+const realtorCampaign = require('../realtor/campaign');
+const realtorReport = require('../realtor/report');
+const realtorLeadForms = require('../realtor/leadforms');
+const realtorCapi = require('../realtor/capi');
 
 const GUARD_MODES = new Set(['observe', 'approval', 'auto_safe']);
 const SOURCE_CONNECTORS = new Set(
@@ -38,7 +44,15 @@ const SDK_ACTION_RISK = {
   list_ads: 'LOW',
   send_whatsapp: 'MEDIUM',
   logs: 'LOW',
-  replay: 'HIGH'
+  replay: 'HIGH',
+  realtor_scopes: 'LOW',
+  realtor_build: 'LOW',
+  realtor_preview: 'LOW',
+  realtor_report: 'LOW',
+  realtor_leads: 'LOW',
+  realtor_leadform: 'MEDIUM',
+  realtor_capi: 'MEDIUM',
+  realtor_create_campaign: 'HIGH'
 };
 
 function mimeFor(filePath) {
@@ -919,6 +933,100 @@ function toBool(v, fallback = false) {
 function toNumber(v, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function realtorConfigLike() {
+  return {
+    token: String(config.getToken ? config.getToken('facebook') || '' : ''),
+    graphVersion: String(config.getApiVersion ? config.getApiVersion() || 'v26.0' : 'v26.0'),
+    scopes: [],
+    defaultPageId: config.getDefaultFacebookPageId ? config.getDefaultFacebookPageId() : '',
+    defaultAdAccountId: config.getDefaultMarketingAdAccountId ? config.getDefaultMarketingAdAccountId() : ''
+  };
+}
+
+function realtorExecutorFromConfig() {
+  const cfg = realtorConfigLike();
+  const client = new MetaAPIClient(cfg.token, 'facebook');
+  return {
+    get: (path, params) => client.get(path, params),
+    post: (path, params) => client.post(path, undefined, params)
+  };
+}
+
+function realtorBriefFromBody(body) {
+  const text = String(body.text || '').trim();
+  const parsed = text ? realtorBrief.parseBriefText(text) : {};
+  const explicit = realtorBrief.briefFromOptions(body.brief || {});
+  return realtorBrief.mergeBrief(parsed, explicit);
+}
+
+function realtorContextFromBrief(brief) {
+  return {
+    pageId: brief.pageId,
+    adAccountId: brief.adAccountId,
+    whatsappNumber: brief.whatsappNumber,
+    leadFormId: brief.leadFormId,
+    imageUrl: brief.image,
+    city: brief.city,
+    projectName: brief.projectName
+  };
+}
+
+function realtorOptsFromBody(body, brief) {
+  const opts = {
+    destination: body.destination || brief.destination || 'whatsapp',
+    status: body.status || 'PAUSED',
+    dailyBudgetInr: toNumber(body.dailyBudgetInr, brief.dailyBudget || 500)
+  };
+  if (body.advantageAudience === 1 || body.advantageAudience === '1') {
+    opts.advantageAudience = 1;
+  } else if (body.advantageAudience === 0 || body.advantageAudience === '0') {
+    opts.advantageAudience = 0;
+  }
+  if (body.advantagePlusLeads === true || body.advantagePlusLeads === 'true' || body.advantagePlusLeads === '1') {
+    opts.advantagePlusLeads = true;
+  }
+  return opts;
+}
+
+function realtorLeadFormFromBody(body, brief) {
+  const questions = Array.isArray(body.questions)
+    ? body.questions
+        .filter((q) => q && typeof q === 'object' && q.type)
+        .map((q) => ({ type: String(q.type).toUpperCase(), key: q.key, label: q.label, options: q.options }))
+    : undefined;
+  return {
+    pageId: String(body.pageId || brief.pageId || '').trim(),
+    name: String(body.name || 'Realtor lead form').trim(),
+    privacyPolicyUrl: String(body.privacyPolicyUrl || '').trim(),
+    contextType: body.contextType || 'PAGE',
+    followUpActionUrl: String(body.followUpActionUrl || '').trim() || undefined,
+    questions,
+    optimizedForQuality: body.optimizedForQuality === true || body.optimizedForQuality === 'true'
+  };
+}
+
+function realtorCapiEventFromBody(body) {
+  const userData = body.userData && typeof body.userData === 'object' ? body.userData : {};
+  return {
+    eventName: String(body.eventName || 'Lead'),
+    eventId: String(body.eventId || '').trim() || undefined,
+    eventTime: toNumber(body.eventTime, 0),
+    eventSourceUrl: String(body.eventSourceUrl || '').trim() || undefined,
+    actionSource: body.actionSource || 'website',
+    userData,
+    customData: body.customData && typeof body.customData === 'object' ? body.customData : undefined
+  };
+}
+
+function realtorCompliancePayload() {
+  return {
+    notice: realtorCompliance.complianceNotice(),
+    scopes: realtorCompliance.requiredScopesList(),
+    scopesNotice: realtorCompliance.housingScopesNotice(),
+    restrictedKeys: realtorCompliance.RESTRICTED_TARGETING_KEYS
+  };
 }
 
 function csvList(v) {
@@ -1886,6 +1994,116 @@ class GatewayServer {
         mappedAction,
         data: replayData
       };
+    }
+
+    if (normalizedAction === 'realtor_scopes') {
+      return realtorCompliancePayload();
+    }
+
+    if (normalizedAction === 'realtor_build') {
+      const brief = realtorBriefFromBody(params);
+      const missing = realtorBrief.requiredFields(brief, false);
+      const formatted = realtorBrief.formatBrief(brief);
+      return {
+        brief,
+        missing,
+        complete: missing.length === 0,
+        formatted,
+        compliance: realtorCompliancePayload()
+      };
+    }
+
+    if (normalizedAction === 'realtor_preview') {
+      const brief = realtorBriefFromBody(params);
+      const context = realtorContextFromBrief(brief);
+      const opts = realtorOptsFromBody(params, brief);
+      return {
+        brief,
+        context,
+        opts,
+        payloads: realtorCampaign.buildAllPayloads(context, opts),
+        compliance: realtorCompliancePayload()
+      };
+    }
+
+    if (normalizedAction === 'realtor_create_campaign') {
+      const brief = realtorBriefFromBody(params);
+      const missing = realtorBrief.requiredFields(brief, true);
+      if (missing.length) {
+        throw new Error(`Missing required fields: ${missing.join(', ')}. Complete the brief or run onboarding first.`);
+      }
+      const context = realtorContextFromBrief(brief);
+      const opts = realtorOptsFromBody(params, brief);
+      const result = await realtorCampaign.createHousingCampaign(
+        realtorExecutorFromConfig(),
+        realtorConfigLike(),
+        context,
+        opts
+      );
+      return { result, compliance: realtorCompliancePayload() };
+    }
+
+    if (normalizedAction === 'realtor_report') {
+      const report = await realtorReport.fetchCampaignReport(
+        realtorExecutorFromConfig(),
+        realtorConfigLike(),
+        String(params.adAccountId || ''),
+        String(params.campaignId || ''),
+        {
+          preset: String(params.preset || 'last_7d'),
+          level: String(params.level || 'campaign'),
+          limit: Math.max(1, Math.min(200, Number(params.limit || 20) || 20))
+        }
+      );
+      return { report, compliance: realtorCompliancePayload() };
+    }
+
+    if (normalizedAction === 'realtor_leads') {
+      const leads = await realtorLeadForms.fetchLeads(
+        realtorExecutorFromConfig(),
+        realtorConfigLike(),
+        {
+          adAccountId: String(params.adAccountId || ''),
+          adId: String(params.adId || ''),
+          startTime: Number(params.startTime || 0),
+          endTime: Number(params.endTime || 0),
+          limit: Math.max(1, Math.min(200, Number(params.limit || 25) || 25))
+        }
+      );
+      return { leads, count: leads.length };
+    }
+
+    if (normalizedAction === 'realtor_leadform') {
+      const brief = realtorBriefFromBody(params);
+      const form = realtorLeadFormFromBody(params, brief);
+      if (!form.privacyPolicyUrl) {
+        throw new Error('Missing required field: privacyPolicyUrl.');
+      }
+      const result = await realtorLeadForms.createLeadForm(
+        realtorExecutorFromConfig(),
+        realtorConfigLike(),
+        form.pageId,
+        form.name,
+        {
+          privacyPolicyUrl: form.privacyPolicyUrl,
+          contextType: form.contextType,
+          followUpActionUrl: form.followUpActionUrl,
+          questions: form.questions,
+          optimizedForQuality: form.optimizedForQuality
+        }
+      );
+      return { result };
+    }
+
+    if (normalizedAction === 'realtor_capi') {
+      const event = realtorCapiEventFromBody(params);
+      const result = await realtorCapi.sendEvent(
+        realtorExecutorFromConfig(),
+        realtorConfigLike(),
+        String(params.adAccountId || ''),
+        event
+      );
+      return { result };
     }
 
     throw new Error(`No executor for action ${normalizedAction}`);
@@ -3919,6 +4137,168 @@ class GatewayServer {
           actor
         });
         sendJson(res, 200, { ok: true, workspace, result, snapshot: opsSummary(workspace) });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: String(error?.message || error || '') });
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && route === '/api/realtor/scopes') {
+      sendJson(res, 200, { ok: true, compliance: realtorCompliancePayload() });
+      return;
+    }
+
+    if (req.method === 'POST' && route === '/api/realtor/build') {
+      try {
+        const body = await readBody(req);
+        const brief = realtorBriefFromBody(body);
+        const missing = realtorBrief.requiredFields(brief, false);
+        const formatted = realtorBrief.formatBrief(brief);
+        sendJson(res, 200, {
+          ok: true,
+          brief,
+          missing,
+          complete: missing.length === 0,
+          formatted,
+          compliance: realtorCompliancePayload()
+        });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: String(error?.message || error || '') });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && route === '/api/realtor/preview') {
+      try {
+        const body = await readBody(req);
+        const brief = realtorBriefFromBody(body);
+        const context = realtorContextFromBrief(brief);
+        const opts = realtorOptsFromBody(body, brief);
+        const payloads = realtorCampaign.buildAllPayloads(context, opts);
+        sendJson(res, 200, {
+          ok: true,
+          brief,
+          context,
+          opts,
+          payloads,
+          compliance: realtorCompliancePayload()
+        });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: String(error?.message || error || '') });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && route === '/api/realtor/create') {
+      try {
+        const body = await readBody(req);
+        const brief = realtorBriefFromBody(body);
+        const missing = realtorBrief.requiredFields(brief, true);
+        if (missing.length) {
+          sendJson(res, 400, {
+            ok: false,
+            error: `Missing required fields: ${missing.join(', ')}. Complete the brief or run onboarding first.`
+          });
+          return;
+        }
+        const context = realtorContextFromBrief(brief);
+        const opts = realtorOptsFromBody(body, brief);
+        const result = await realtorCampaign.createHousingCampaign(
+          realtorExecutorFromConfig(),
+          realtorConfigLike(),
+          context,
+          opts
+        );
+        sendJson(res, 200, { ok: true, result, compliance: realtorCompliancePayload() });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: String(error?.message || error || '') });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && route === '/api/realtor/report') {
+      try {
+        const body = await readBody(req);
+        const executor = realtorExecutorFromConfig();
+        const report = await realtorReport.fetchCampaignReport(
+          executor,
+          realtorConfigLike(),
+          String(body.adAccountId || ''),
+          String(body.campaignId || ''),
+          {
+            preset: body.preset || 'last_7d',
+            level: body.level || 'campaign',
+            limit: toNumber(body.limit, 20)
+          }
+        );
+        sendJson(res, 200, { ok: true, report, compliance: realtorCompliancePayload() });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: String(error?.message || error || '') });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && route === '/api/realtor/leadform') {
+      try {
+        const body = await readBody(req);
+        const brief = realtorBriefFromBody(body);
+        const form = realtorLeadFormFromBody(body, brief);
+        if (!form.privacyPolicyUrl) {
+          sendJson(res, 400, { ok: false, error: 'Missing required field: privacyPolicyUrl.' });
+          return;
+        }
+        const result = await realtorLeadForms.createLeadForm(
+          realtorExecutorFromConfig(),
+          realtorConfigLike(),
+          form.pageId,
+          form.name,
+          {
+            privacyPolicyUrl: form.privacyPolicyUrl,
+            contextType: form.contextType,
+            followUpActionUrl: form.followUpActionUrl,
+            questions: form.questions,
+            optimizedForQuality: form.optimizedForQuality
+          }
+        );
+        sendJson(res, 200, { ok: true, result });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: String(error?.message || error || '') });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && route === '/api/realtor/leads') {
+      try {
+        const body = await readBody(req);
+        const leads = await realtorLeadForms.fetchLeads(
+          realtorExecutorFromConfig(),
+          realtorConfigLike(),
+          {
+            adAccountId: String(body.adAccountId || ''),
+            adId: String(body.adId || ''),
+            startTime: toNumber(body.startTime, 0),
+            endTime: toNumber(body.endTime, 0),
+            limit: toNumber(body.limit, 25)
+          }
+        );
+        sendJson(res, 200, { ok: true, leads, count: leads.length });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: String(error?.message || error || '') });
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && route === '/api/realtor/capi-event') {
+      try {
+        const body = await readBody(req);
+        const event = realtorCapiEventFromBody(body);
+        const result = await realtorCapi.sendEvent(
+          realtorExecutorFromConfig(),
+          realtorConfigLike(),
+          String(body.adAccountId || ''),
+          event
+        );
+        sendJson(res, 200, { ok: true, result });
       } catch (error) {
         sendJson(res, 400, { ok: false, error: String(error?.message || error || '') });
       }

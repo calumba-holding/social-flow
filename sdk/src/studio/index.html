@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Social Flow SDK Studio</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">SF</span>
+      <div>
+        <h1>Social Flow SDK Studio</h1>
+        <p class="subtitle">Realtor Ads Studio · embedded, keyless</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="status-pill" class="pill ok">Connecting…</span>
+      <span id="server-pill" class="pill">…</span>
+      <button id="refresh-all" type="button" class="btn ghost">Refresh</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card setup-card">
+      <div class="card-head">
+        <h2>Meta Connection</h2>
+        <span class="badge">No API key required</span>
+      </div>
+      <p class="muted">Paste your own Meta access token to push real campaigns. Build and preview work keylessly before any token is added.</p>
+      <form id="setup-form" class="grid-3">
+        <label>
+          Meta Access Token
+          <input id="setup-token" type="password" placeholder="EAAG…" autocomplete="off" />
+        </label>
+        <label>
+          Page ID
+          <input id="setup-page-id" type="text" placeholder="Optional default" />
+        </label>
+        <label>
+          Ad Account ID
+          <input id="setup-ad-account" type="text" placeholder="act_123 or 123" />
+        </label>
+        <div class="form-actions">
+          <button id="setup-save" type="submit" class="btn">Save Setup</button>
+          <span id="setup-status" class="muted inline-status"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Realtor Studio</h2>
+        <span class="badge">Housing-compliant</span>
+      </div>
+      <p class="muted">Turn a plain brief into a Meta housing ad campaign for India. Review compliance-safe payloads, then create a paused campaign or pull a report.</p>
+
+      <form id="realtor-form">
+        <label for="realtor-text">Project Brief</label>
+        <textarea id="realtor-text" rows="5" placeholder="3 BHK in Sarjapur, Bengaluru for ₹1.2 crore. Ready to move. Daily budget ₹1000. WhatsApp 9876543210."></textarea>
+
+        <div class="grid-3">
+          <label>
+            Daily Budget (INR)
+            <input id="realtor-budget" type="number" min="100" step="100" placeholder="500" />
+          </label>
+          <label>
+            Destination
+            <select id="realtor-destination">
+              <option value="whatsapp">WhatsApp</option>
+              <option value="lead_form">Lead Form</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select id="realtor-status">
+              <option value="PAUSED" selected>PAUSED (safe)</option>
+              <option value="ACTIVE">ACTIVE</option>
+            </select>
+          </label>
+          <label>
+            Advantage Audience
+            <select id="realtor-advantage-audience">
+              <option value="0" selected>Off (housing-safe)</option>
+              <option value="1">On</option>
+            </select>
+          </label>
+          <label>
+            Advantage+ Leads
+            <select id="realtor-advantage-plus">
+              <option value="off" selected>Off</option>
+              <option value="on">On</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid-3">
+          <label>
+            Facebook Page ID
+            <input id="realtor-page-id" type="text" placeholder="Optional" />
+          </label>
+          <label>
+            Ad Account ID
+            <input id="realtor-ad-account" type="text" placeholder="Optional" />
+          </label>
+          <label>
+            WhatsApp Number
+            <input id="realtor-whatsapp" type="tel" placeholder="+919876543210" />
+          </label>
+          <label>
+            Lead Form ID
+            <input id="realtor-lead-form" type="text" placeholder="For lead form destination" />
+          </label>
+          <label>
+            Ad Image URL
+            <input id="realtor-image" type="text" placeholder="https://…/property.jpg" />
+          </label>
+        </div>
+
+        <div class="row">
+          <button id="realtor-build" type="button" class="btn">Build Brief</button>
+          <button id="realtor-preview" type="button" class="btn ghost">Preview Payloads</button>
+          <button id="realtor-create" type="button" class="btn ghost">Create Campaign</button>
+          <button id="realtor-report" type="button" class="btn ghost">Fetch Report</button>
+        </div>
+      </form>
+    </section>
+
+    <div class="grid-2">
+      <section class="card">
+        <h3>Compliance + Scopes</h3>
+        <div id="realtor-compliance" class="mono-block">Housing ads are a restricted special ad category in India. Load scopes to see the requirements.</div>
+      </section>
+      <section class="card">
+        <h3>Parsed Brief</h3>
+        <pre id="realtor-brief" class="mono-block">Describe a project, then press Build Brief.</pre>
+      </section>
+    </div>
+
+    <section class="card">
+      <h3>Payload Preview</h3>
+      <pre id="realtor-payload" class="mono-block">Build a brief, then press Preview Payloads to inspect the campaign, ad set, creative, and ad.</pre>
+    </section>
+
+    <div class="grid-2">
+      <section class="card">
+        <h3>Create Result</h3>
+        <pre id="realtor-result" class="mono-block">Press Create Campaign to push a paused housing campaign to Meta Ads Manager.</pre>
+      </section>
+      <section class="card">
+        <h3>Report</h3>
+        <pre id="realtor-report-output" class="mono-block">Press Fetch Report to pull campaign insights with plain-English explanations.</pre>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <h3>Lead Forms &amp; Conversions API</h3>
+        <span class="badge">Advanced</span>
+      </div>
+      <div class="grid-3">
+        <label>
+          Lead Form Name
+          <input id="realtor-lf-name" type="text" placeholder="Sarjapur 3 BHK Enquiries" />
+        </label>
+        <label>
+          Privacy Policy URL
+          <input id="realtor-lf-privacy" type="text" placeholder="https://your-site.in/privacy" />
+        </label>
+        <label>
+          Optimize for Quality
+          <select id="realtor-lf-optimize">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="realtor-create-lf" type="button" class="btn ghost">Create Lead Form</button>
+        <span id="realtor-lf-output" class="muted inline-status"></span>
+      </div>
+      <div class="grid-2">
+        <label>
+          Ad / Ad Account ID for Leads
+          <input id="realtor-leads-ad-id" type="text" placeholder="act_123 or ad id" />
+        </label>
+        <label>
+          Days back
+          <input id="realtor-leads-days" type="number" min="1" max="90" value="7" />
+        </label>
+      </div>
+      <div class="row">
+        <button id="realtor-fetch-leads" type="button" class="btn ghost">Fetch Leads</button>
+        <span id="realtor-leads-output" class="muted inline-status"></span>
+      </div>
+      <div class="grid-3">
+        <label>
+          CAPI Event Name
+          <select id="realtor-capi-event">
+            <option value="Lead">Lead</option>
+            <option value="LeadSubmitted">LeadSubmitted</option>
+            <option value="CompleteRegistration">CompleteRegistration</option>
+            <option value="Contact">Contact</option>
+          </select>
+        </label>
+        <label>
+          Event Source URL
+          <input id="realtor-capi-source" type="text" placeholder="https://your-site.in/thank-you" />
+        </label>
+        <label>
+          Lead Email
+          <input id="realtor-capi-email" type="email" placeholder="buyer@example.com" />
+        </label>
+        <label>
+          Lead Phone
+          <input id="realtor-capi-phone" type="tel" placeholder="+919876543210" />
+        </label>
+      </div>
+      <div class="row">
+        <button id="realtor-send-capi" type="button" class="btn ghost">Send CAPI Event</button>
+        <span id="realtor-capi-output" class="muted inline-status"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Action Log</h3>
+      <pre id="action-log" class="mono-block">No actions executed yet.</pre>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -15,6 +15,7 @@
     "commands/reach.ts",
     "core/**/*.ts",
     "lib/reach.ts",
+    "lib/realtor/**/*.ts",
     "executors/**/*.ts",
     "lib/playwright-runtime.ts",
     "lib/app-paths.ts",

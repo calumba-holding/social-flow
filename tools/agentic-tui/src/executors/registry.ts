@@ -432,7 +432,7 @@ const executors: Record<ParsedIntent["action"], RegisteredExecutor> = {
       const next: SocialConfig = {
         ...cfg,
         token: intent.params.token || cfg.token,
-        graphVersion: intent.params.graphVersion || cfg.graphVersion || "v20.0",
+        graphVersion: intent.params.graphVersion || cfg.graphVersion || "v26.0",
         scopes: (intent.params.scopes || "").split(",").map((x) => x.trim()).filter(Boolean).length
           ? (intent.params.scopes || "").split(",").map((x) => x.trim()).filter(Boolean)
           : cfg.scopes,

@@ -25,10 +25,10 @@ function registerUtilsCommands(program: any) {
   const version = utils.command('version').description('API version management');
   version
     .command('set <apiVersion>')
-    .description('Set Graph API version (e.g. v19.0 or v20.0)')
+    .description('Set Graph API version (e.g. v26.0)')
     .action((apiVersion: string) => {
       if (!/^v\d+\.\d+$/.test(apiVersion)) {
-        console.error(chalk.red('X Invalid version format. Use like v20.0'));
+        console.error(chalk.red('X Invalid version format. Use like v26.0'));
         process.exit(1);
       }
       config.setApiVersion(apiVersion);

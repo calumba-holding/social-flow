@@ -97,7 +97,7 @@ function normalizeAiProvider(value: unknown): AiProvider {
 function defaultStoredProfile(): StoredProfile {
   const provider: AiProvider = "ollama";
   return {
-    apiVersion: "v20.0",
+    apiVersion: "v26.0",
     defaultApi: "facebook",
     agent: {
       provider,
@@ -138,7 +138,7 @@ function normalizeStoredProfile(raw: unknown): StoredProfile {
 
   return {
     ...source,
-    apiVersion: cleanString(source.apiVersion) || "v20.0",
+    apiVersion: cleanString(source.apiVersion) || "v26.0",
     defaultApi: normalizeApiName(source.defaultApi),
     agent: {
       ...agent,
@@ -194,7 +194,7 @@ function migrateFlatConfig(raw: unknown): StoredConfig {
   const defaultApi = normalizeApiName(source.defaultApi);
   const profile = defaultStoredProfile();
 
-  profile.apiVersion = cleanString(source.graphVersion) || "v20.0";
+  profile.apiVersion = cleanString(source.graphVersion) || "v26.0";
   profile.defaultApi = defaultApi;
   profile.tokens[defaultApi] = cleanString(source.token);
   if (!profile.tokens.facebook && profile.tokens[defaultApi] && defaultApi !== "facebook") {
@@ -261,7 +261,7 @@ function legacyConfigFiles(): string[] {
 
 const DEFAULT_CONFIG: SocialConfig = {
   token: "",
-  graphVersion: "v20.0",
+  graphVersion: "v26.0",
   scopes: [],
   defaultApi: "facebook",
   activeProfile: "default",
@@ -368,7 +368,7 @@ export async function writeConfig(config: SocialConfig): Promise<void> {
   const provider = normalizeAiProvider(config.ai?.provider || profile.agent.provider);
   const ai = config.ai;
 
-  profile.apiVersion = cleanString(config.graphVersion) || "v20.0";
+  profile.apiVersion = cleanString(config.graphVersion) || "v26.0";
   profile.defaultApi = defaultApi;
   profile.tokens = currentTokens;
   profile.defaults = {

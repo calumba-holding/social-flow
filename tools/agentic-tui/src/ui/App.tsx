@@ -160,7 +160,7 @@ async function loadConfigSnapshot(): Promise<ConfigSnapshot> {
   };
   return {
     tokenSet: tokenMap.facebook || tokenMap.instagram || tokenMap.whatsapp,
-    graphVersion: parsed.graphVersion || "v20.0",
+    graphVersion: parsed.graphVersion || "v26.0",
     scopes: Array.isArray(parsed.scopes) ? parsed.scopes.map((x) => String(x)) : [],
     tokenMap,
     defaultPageId: parsed.defaultPageId,
@@ -727,7 +727,7 @@ function Dashboard(): JSX.Element {
 
   const accountOptions = accountOptionsFromConfig(config || {
     tokenSet: false,
-    graphVersion: "v20.0",
+    graphVersion: "v26.0",
     scopes: [],
     tokenMap: {
       facebook: false,

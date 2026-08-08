@@ -6,7 +6,7 @@ const configSingleton = require('./config');
 class MetaAPIClient extends MetaApiClient {
   constructor(token, api = 'facebook', opts = {}) {
     const cfg = opts.config || configSingleton;
-    const apiVersion = opts.apiVersion || (cfg && typeof cfg.getApiVersion === 'function' ? cfg.getApiVersion() : 'v20.0');
+    const apiVersion = opts.apiVersion || (cfg && typeof cfg.getApiVersion === 'function' ? cfg.getApiVersion() : 'v26.0');
     super({ token, apiVersion });
     this.api = api;
   }

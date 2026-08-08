@@ -10,6 +10,7 @@ const ADVANCED_SCREEN_TARGETS = new Set([
   "copilot",
   "diagnose",
   "launchpad",
+  "realtor",
   "agents",
   "tools",
   "recipes",
@@ -144,6 +145,43 @@ const nodes = {
   generateHandoff: $("generate-handoff"),
   launchpadReadiness: $("launchpad-readiness"),
   launchpadOutput: $("launchpad-output"),
+
+  realtorForm: $("realtor-form"),
+  realtorText: $("realtor-text"),
+  realtorBudget: $("realtor-budget"),
+  realtorDestination: $("realtor-destination"),
+  realtorStatus: $("realtor-status"),
+  realtorAdvantageAudience: $("realtor-advantage-audience"),
+  realtorPageId: $("realtor-page-id"),
+  realtorAdAccount: $("realtor-ad-account"),
+  realtorWhatsapp: $("realtor-whatsapp"),
+  realtorLeadForm: $("realtor-lead-form"),
+  realtorImage: $("realtor-image"),
+  realtorBuild: $("realtor-build"),
+  realtorPreview: $("realtor-preview"),
+  realtorCreate: $("realtor-create"),
+  realtorReport: $("realtor-report"),
+  realtorCompliance: $("realtor-compliance"),
+  realtorBrief: $("realtor-brief"),
+  realtorPayload: $("realtor-payload"),
+  realtorResult: $("realtor-result"),
+  realtorReportOutput: $("realtor-report-output"),
+  realtorAdvantagePlus: $("realtor-advantage-plus"),
+  realtorLfName: $("realtor-lf-name"),
+  realtorLfPrivacy: $("realtor-lf-privacy"),
+  realtorLfOptimize: $("realtor-lf-optimize"),
+  realtorCreateLf: $("realtor-create-lf"),
+  realtorLfOutput: $("realtor-lf-output"),
+  realtorLeadsAdId: $("realtor-leads-ad-id"),
+  realtorLeadsDays: $("realtor-leads-days"),
+  realtorFetchLeads: $("realtor-fetch-leads"),
+  realtorLeadsOutput: $("realtor-leads-output"),
+  realtorCapiEvent: $("realtor-capi-event"),
+  realtorCapiSource: $("realtor-capi-source"),
+  realtorCapiEmail: $("realtor-capi-email"),
+  realtorCapiPhone: $("realtor-capi-phone"),
+  realtorSendCapi: $("realtor-send-capi"),
+  realtorCapiOutput: $("realtor-capi-output"),
 
   setupMetrics: $("setup-metrics"),
   setupChecklist: $("setup-checklist"),
@@ -325,6 +363,12 @@ const SCREEN_META = {
     kicker: "Run Flows",
     title: "Setup",
     summary: "One-click flows for onboarding, guardrails, recurring routines, and runbooks."
+  },
+  realtor: {
+    group: "run",
+    kicker: "Run Flows",
+    title: "Realtor Studio",
+    summary: "Build Meta housing ad campaigns for India from a plain brief, with compliance-safe targeting and report cards."
   },
   agents: {
     group: "build",
@@ -2114,6 +2158,278 @@ async function runDiagnosis(event) {
   }
 }
 
+function realtorRequestPayload() {
+  const text = String(nodes.realtorText.value || "").trim();
+  const brief = {};
+  const pageId = String(nodes.realtorPageId.value || "").trim();
+  const adAccountId = String(nodes.realtorAdAccount.value || "").trim();
+  const whatsappNumber = String(nodes.realtorWhatsapp.value || "").trim();
+  const leadFormId = String(nodes.realtorLeadForm.value || "").trim();
+  const image = String(nodes.realtorImage.value || "").trim();
+  if (pageId) brief.pageId = pageId;
+  if (adAccountId) brief.adAccountId = adAccountId;
+  if (whatsappNumber) brief.whatsappNumber = whatsappNumber;
+  if (leadFormId) brief.leadFormId = leadFormId;
+  if (image) brief.image = image;
+  const payload = { text, brief };
+  const budget = Number(nodes.realtorBudget.value);
+  if (Number.isFinite(budget) && budget > 0) payload.dailyBudgetInr = budget;
+  const destination = String(nodes.realtorDestination.value || "whatsapp").trim();
+  if (destination) payload.destination = destination;
+  const status = String(nodes.realtorStatus.value || "PAUSED").trim();
+  if (status) payload.status = status;
+  const advantageAudience = nodes.realtorAdvantageAudience.value;
+  if (advantageAudience === "1" || advantageAudience === "0") {
+    payload.advantageAudience = Number(advantageAudience);
+  }
+  if (nodes.realtorAdvantagePlus.value === "on") {
+    payload.advantagePlusLeads = true;
+  }
+  return payload;
+}
+
+function renderRealtorCompliance(compliance) {
+  if (!compliance) {
+    nodes.realtorCompliance.textContent = "No compliance payload returned.";
+    return;
+  }
+  const lines = [];
+  if (Array.isArray(compliance.notice) && compliance.notice.length) {
+    lines.push("Notice:");
+    compliance.notice.forEach((line) => lines.push(`  ${line}`));
+  }
+  if (Array.isArray(compliance.scopes) && compliance.scopes.length) {
+    lines.push("Required scopes:");
+    compliance.scopes.forEach((scope) => lines.push(`  ${scope}`));
+  }
+  nodes.realtorCompliance.innerHTML = lines.length
+    ? `<pre class="mono-block">${escapeHtml(lines.join("\n"))}</pre>`
+    : "Housing compliance details will appear here.";
+}
+
+async function loadRealtorScopes() {
+  try {
+    const data = await sdkExecute("realtor_scopes", {});
+    renderRealtorCompliance(data);
+  } catch (error) {
+    nodes.realtorCompliance.textContent = `Unable to load scopes: ${errorText(error)}`;
+  }
+}
+
+async function sdkExecute(action, params = {}, { requiresApproval = false } = {}) {
+  let approvalToken = "";
+  let approvalReason = "";
+  if (requiresApproval) {
+    const plan = await requestApi("/api/sdk/actions/plan", { method: "POST", body: { action, params } });
+    approvalToken = String(plan?.data?.approvalToken || plan?.meta?.approvalToken || "");
+    if (!approvalToken) throw new Error("No approval token issued for this action.");
+    const reason = typeof window !== "undefined" && window.prompt
+      ? window.prompt(`Approval reason for "${action}":`)
+      : "";
+    approvalReason = String(reason || "").trim();
+    if (!approvalReason) throw new Error("Approval reason is required.");
+  }
+  const body = { action, params };
+  if (approvalToken) body.approvalToken = approvalToken;
+  if (approvalReason) body.approvalReason = approvalReason;
+  const out = await requestApi("/api/sdk/actions/execute", { method: "POST", body });
+  return out?.data ?? {};
+}
+
+async function realtorBuildBrief(event) {
+  if (event) event.preventDefault();
+  const payload = realtorRequestPayload();
+  nodes.realtorBrief.textContent = "Building brief...";
+  try {
+    const out = await sdkExecute("realtor_build", payload);
+    nodes.realtorBrief.textContent = out?.formatted || pretty(out);
+    const missing = Array.isArray(out?.missing) ? out.missing : [];
+    if (out?.complete) toast("Brief parsed and complete.", "ok");
+    else toast(`Brief parsed. Missing: ${missing.join(", ") || "details"}.`, "warn");
+    renderRealtorCompliance(out?.compliance);
+  } catch (error) {
+    nodes.realtorBrief.textContent = `Error: ${errorText(error)}`;
+    toast(errorText(error, "Brief build failed"), "err");
+  }
+}
+
+async function realtorPreviewPayloads(event) {
+  if (event) event.preventDefault();
+  const payload = realtorRequestPayload();
+  nodes.realtorPayload.textContent = "Building payloads...";
+  try {
+    const out = await sdkExecute("realtor_preview", payload);
+    const preview = {
+      opts: out?.opts,
+      context: out?.context,
+      payloads: out?.payloads,
+      notes: out?.payloads?.notes || []
+    };
+    nodes.realtorPayload.textContent = pretty(preview);
+    toast("Payloads previewed.", "ok");
+    renderRealtorCompliance(out?.compliance);
+  } catch (error) {
+    nodes.realtorPayload.textContent = `Error: ${errorText(error)}`;
+    toast(errorText(error, "Preview failed"), "err");
+  }
+}
+
+async function realtorCreateCampaign(event) {
+  if (event) event.preventDefault();
+  const payload = realtorRequestPayload();
+  if (!String(nodes.realtorText.value || "").trim()) {
+    toast("Describe the project before creating.", "err");
+    return;
+  }
+  nodes.realtorResult.textContent = "Planning campaign creation...";
+  try {
+    const out = await sdkExecute("realtor_create_campaign", payload, { requiresApproval: true });
+    const result = out?.result || {};
+    const lines = [
+      `Campaign: ${result.campaignId || "?"}`,
+      `Ad set: ${result.adSetId || "?"}`,
+      `Creative: ${result.creativeId || "?"}`,
+      `Ad: ${result.adId || "?"}`,
+      `Status: ${result.status || "?"}`,
+      `Destination: ${result.destination || "?"}`,
+      `Daily budget: ${result.dailyBudgetInr || "?"} INR`,
+      `Review: ${result.reviewUrl || "?"}`
+    ];
+    if (Array.isArray(result.notes)) result.notes.forEach((note) => lines.push(`Note: ${note}`));
+    nodes.realtorResult.textContent = lines.join("\n");
+    toast(`Campaign created (${result.status || "PAUSED"}).`, "ok");
+    renderRealtorCompliance(out?.compliance);
+  } catch (error) {
+    nodes.realtorResult.textContent = `Error: ${errorText(error)}`;
+    toast(errorText(error, "Campaign create failed"), "err");
+  }
+}
+
+async function realtorFetchReport(event) {
+  if (event) event.preventDefault();
+  const payload = realtorRequestPayload();
+  nodes.realtorReportOutput.textContent = "Fetching report...";
+  try {
+    const out = await sdkExecute("realtor_report", payload);
+    const report = out?.report || {};
+    const lines = [];
+    lines.push(`Account: ${report.account || "?"}`);
+    lines.push(`Preset: ${report.preset || "?"}`);
+    lines.push("");
+    const totals = report.totals || {};
+    lines.push("Totals:");
+    Object.entries(totals).forEach(([key, value]) => {
+      if (value === 0) return;
+      lines.push(`  ${key}: ${typeof value === "number" ? value.toLocaleString("en-IN") : value}`);
+    });
+    if (Array.isArray(report.narrative) && report.narrative.length) {
+      lines.push("");
+      lines.push("Narrative:");
+      report.narrative.forEach((line) => lines.push(`  ${line}`));
+    }
+    if (Array.isArray(report.recommendations) && report.recommendations.length) {
+      lines.push("");
+      lines.push("Recommendations:");
+      report.recommendations.forEach((line) => lines.push(`  ${line}`));
+    }
+    if (Array.isArray(report.rows) && report.rows.length) {
+      lines.push("");
+      lines.push(`Rows: ${report.rows.length}`);
+      report.rows.slice(0, 8).forEach((row) => {
+        lines.push(`  ${row.name || row.id || "?"}: spend ${row.spend || 0}, leads ${row.leads || 0}`);
+      });
+    }
+    nodes.realtorReportOutput.textContent = lines.join("\n");
+    toast("Report fetched.", "ok");
+    renderRealtorCompliance(out?.compliance);
+  } catch (error) {
+    nodes.realtorReportOutput.textContent = `Error: ${errorText(error)}`;
+    toast(errorText(error, "Report fetch failed"), "err");
+  }
+}
+
+async function realtorCreateLeadForm(event) {
+  if (event) event.preventDefault();
+  const brief = realtorRequestPayload();
+  const name = String(nodes.realtorLfName.value || "").trim();
+  const privacyPolicyUrl = String(nodes.realtorLfPrivacy.value || "").trim();
+  if (!privacyPolicyUrl) {
+    nodes.realtorLfOutput.textContent = "Privacy Policy URL is required.";
+    toast("Privacy Policy URL is required.", "err");
+    return;
+  }
+  nodes.realtorLfOutput.textContent = "Creating lead form...";
+  try {
+    const body = { ...brief, name, privacyPolicyUrl };
+    body.optimizedForQuality = nodes.realtorLfOptimize.value === "true";
+    const out = await sdkExecute("realtor_leadform", body, { requiresApproval: true });
+    const result = out?.result || {};
+    nodes.realtorLfOutput.textContent = `Created form ${result.formId} on page ${result.pageId}. Open in Meta:\n${result.reviewUrl}`;
+    if (result.formId) nodes.realtorLeadForm.value = result.formId;
+    toast("Lead form created.", "ok");
+  } catch (error) {
+    nodes.realtorLfOutput.textContent = `Error: ${errorText(error)}`;
+    toast(errorText(error, "Lead form creation failed"), "err");
+  }
+}
+
+async function realtorFetchLeads(event) {
+  if (event) event.preventDefault();
+  const brief = realtorRequestPayload();
+  const days = Math.max(1, Math.min(90, Number(nodes.realtorLeadsDays.value) || 7));
+  const now = Math.floor(Date.now() / 1000);
+  const body = { ...brief, startTime: now - days * 86400, endTime: now };
+  const target = String(nodes.realtorLeadsAdId.value || "").trim();
+  if (target) {
+    if (target.startsWith("act_") || target.startsWith("act")) body.adAccountId = target;
+    else body.adId = target;
+  }
+  nodes.realtorLeadsOutput.textContent = "Fetching leads...";
+  try {
+    const out = await sdkExecute("realtor_leads", body);
+    nodes.realtorLeadsOutput.textContent = out.count > 0
+      ? `Fetched ${out.count} lead(s).\n${out.leads.map((lead) => `${lead.createdTime || "?"} — ${lead.fields["full name"] || lead.fields["phone_number"] || lead.id || "?"}`).join("\n")}`
+      : "No leads in the selected window.";
+    toast(out.count > 0 ? `Fetched ${out.count} leads.` : "No leads found.", out.count > 0 ? "ok" : "info");
+  } catch (error) {
+    nodes.realtorLeadsOutput.textContent = `Error: ${errorText(error)}`;
+    toast(errorText(error, "Lead fetch failed"), "err");
+  }
+}
+
+async function realtorSendCapi(event) {
+  if (event) event.preventDefault();
+  const brief = realtorRequestPayload();
+  const email = String(nodes.realtorCapiEmail.value || "").trim();
+  const phone = String(nodes.realtorCapiPhone.value || "").trim();
+  if (!email && !phone) {
+    nodes.realtorCapiOutput.textContent = "Provide at least an email or phone for the lead.";
+    toast("Email or phone required.", "err");
+    return;
+  }
+  nodes.realtorCapiOutput.textContent = "Sending Conversions API event...";
+  try {
+    const userData = {};
+    if (email) userData.email = email;
+    if (phone) userData.phone = phone;
+    const body = {
+      ...brief,
+      eventName: nodes.realtorCapiEvent.value || "Lead",
+      eventSourceUrl: String(nodes.realtorCapiSource.value || "").trim() || undefined,
+      userData
+    };
+    const out = await sdkExecute("realtor_capi", body, { requiresApproval: true });
+    const result = out?.result || {};
+    nodes.realtorCapiOutput.textContent = result.received
+      ? `Event ${result.eventId || "Lead"} received by Meta.`
+      : `Event sent but not confirmed as received: ${pretty(result)}`;
+    toast(result.received ? "CAPI event received." : "CAPI event sent.", result.received ? "ok" : "info");
+  } catch (error) {
+    nodes.realtorCapiOutput.textContent = `Error: ${errorText(error)}`;
+    toast(errorText(error, "CAPI event failed"), "err");
+  }
+}
+
 function writeLaunchpad(title, payload) {
   nodes.launchpadOutput.textContent = `${title}\n\n${pretty(payload)}`;
 }
@@ -3002,7 +3318,8 @@ async function refreshAll() {
       loadHostedTriggers().catch(() => {}),
       loadHostedLogs().catch(() => {}),
       loadWebchatWidgetKeys().catch(() => {}),
-      loadWebchatSessions().catch(() => {})
+      loadWebchatSessions().catch(() => {}),
+      loadRealtorScopes().catch(() => {})
     );
   }
 
@@ -3176,6 +3493,14 @@ function bindEvents() {
       toast("Copy failed. Select and copy manually.", "err");
     }
   });
+
+  nodes.realtorBuild.addEventListener("click", (event) => realtorBuildBrief(event));
+  nodes.realtorPreview.addEventListener("click", (event) => realtorPreviewPayloads(event));
+  nodes.realtorCreate.addEventListener("click", (event) => realtorCreateCampaign(event));
+  nodes.realtorReport.addEventListener("click", (event) => realtorFetchReport(event));
+  nodes.realtorCreateLf.addEventListener("click", (event) => realtorCreateLeadForm(event));
+  nodes.realtorFetchLeads.addEventListener("click", (event) => realtorFetchLeads(event));
+  nodes.realtorSendCapi.addEventListener("click", (event) => realtorSendCapi(event));
 
   nodes.saveIdentity.addEventListener("click", () => saveIdentity());
   nodes.runMorning.addEventListener("click", () => runMorningOps());

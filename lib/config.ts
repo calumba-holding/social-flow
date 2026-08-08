@@ -112,7 +112,7 @@ class ConfigManager {
 
   _defaultsProfile() {
     return {
-      apiVersion: 'v20.0',
+      apiVersion: 'v26.0',
       defaultApi: 'facebook',
       agent: {
         provider: 'openai',
@@ -383,7 +383,7 @@ class ConfigManager {
 
   getApiVersion() {
     const p = this._profile();
-    return p.apiVersion || 'v20.0';
+    return p.apiVersion || 'v26.0';
   }
 
   // Tokens
@@ -848,7 +848,7 @@ class ConfigManager {
     const settingsRows = [
       kv('App ID', app.appId ? chalk.green(app.appId) : '', { labelWidth: 16 }),
       kv('App Secret', app.appSecret ? formatBadge('CONFIGURED', { tone: 'success' }) : '', { labelWidth: 16 }),
-      kv('API Version', chalk.cyan(p.apiVersion || 'v20.0'), { labelWidth: 16 }),
+      kv('API Version', chalk.cyan(p.apiVersion || 'v26.0'), { labelWidth: 16 }),
       kv('Default API', chalk.cyan(p.defaultApi || 'facebook'), { labelWidth: 16 }),
       kv('Agent Provider', chalk.cyan((p.agent || {}).provider || 'openai'), { labelWidth: 16 }),
       kv('Agent Model', chalk.cyan((p.agent || {}).model || '(default)'), { labelWidth: 16 }),

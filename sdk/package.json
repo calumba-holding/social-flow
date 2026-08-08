@@ -1,17 +1,23 @@
 {
   "name": "@vishalgojha/social-flow-sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK for Social Flow Gateway.",
+  "description": "Standalone SDK with a built-in keyless Realtor Ads Studio. Plan, preview, and push housing-compliant Meta campaigns from a single dependency-free package.",
   "private": true,
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
+  "bin": {
+    "social-flow-sdk": "bin/social-flow-sdk.js"
+  },
   "files": [
-    "dist/"
+    "dist/",
+    "bin/",
+    "src/studio/"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node dist/test/client.test.js"
+    "build": "tsc -p tsconfig.json && node scripts/copy-studio.mjs",
+    "test": "npm run build && node dist/test/client.test.js && node dist/test/server.test.js",
+    "start": "node bin/social-flow-sdk.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

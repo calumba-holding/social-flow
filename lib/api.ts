@@ -38,7 +38,7 @@ class MetaApiClient {
   constructor(opts) {
     const { token, apiVersion, baseUrl } = opts || {};
     this.token = token || '';
-    this.apiVersion = apiVersion || 'v20.0';
+    this.apiVersion = apiVersion || 'v26.0';
     this.baseUrl = baseUrl || `https://graph.facebook.com/${this.apiVersion}`;
     this.http = axios.create({
       baseURL: this.baseUrl,

@@ -34,7 +34,7 @@ module.exports = [
       console.warn = () => {};
 
       try {
-        const client = new MetaApiClient({ token: 't', apiVersion: 'v20.0' });
+        const client = new MetaApiClient({ token: 't', apiVersion: 'v26.0' });
 
         let calls = 0;
         client.http.request = async () => {

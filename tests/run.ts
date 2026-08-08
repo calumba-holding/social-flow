@@ -13,7 +13,8 @@ async function loadTests(): Promise<TestCase[]> {
     "intent-parser.test",
     "config.test",
     "playwright-runtime.test",
-    "http-executor.test"
+    "http-executor.test",
+    "realtor.test"
   ];
   const out: TestCase[] = [];
 

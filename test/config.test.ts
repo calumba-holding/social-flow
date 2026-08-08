@@ -44,7 +44,7 @@ module.exports = [
     name: 'legacy social-cli config migrates into .social-flow',
     fn: () => withTempHome((dir) => {
       const legacy = {
-        apiVersion: 'v20.0',
+        apiVersion: 'v26.0',
         defaultApi: 'facebook',
         tokens: { facebook: 'EAAB_SOCIAL_CLI' }
       };

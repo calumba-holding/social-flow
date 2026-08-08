@@ -137,6 +137,12 @@
               </span>
               <span class="nav-copy"><strong>Launchpad</strong><small>guardrails, routines, first steps</small></span>
             </button>
+            <button type="button" class="screen-link" data-screen-target="realtor" data-nav-group="run">
+              <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 9.5V20h14V9.5"/><path d="M9 20v-6h6v6"/></svg>
+              </span>
+              <span class="nav-copy"><strong>Realtor Studio</strong><small>housing briefs, ads, reports</small></span>
+            </button>
           </div>
         </section>
 
@@ -603,6 +609,182 @@
           <h3>Action Output</h3>
           <pre id="launchpad-output" class="mono-block">Run launchpad actions to see structured output here.</pre>
         </article>
+      </section>
+
+      <section id="screen-realtor" class="screen" data-screen="realtor">
+        <div class="screen-head">
+          <h2>Realtor Studio</h2>
+          <p class="muted">Turn a plain brief into a Meta housing ad campaign for India. Describe the project, review the compliance-safe targeting and payloads, then create a paused campaign or pull a report.</p>
+        </div>
+
+        <article class="card">
+          <form id="realtor-form" class="diagnose-form">
+            <label for="realtor-text">Project Brief</label>
+            <textarea id="realtor-text" rows="5" placeholder="3 BHK in Sarjapur, Bengaluru for ₹1.2 crore. Ready to move. Daily budget ₹1000. WhatsApp 9876543210."></textarea>
+
+            <div class="triple-grid">
+              <div>
+                <label for="realtor-budget">Daily Budget (INR)</label>
+                <input id="realtor-budget" type="number" min="100" step="100" placeholder="500" />
+              </div>
+              <div>
+                <label for="realtor-destination">Destination</label>
+                <select id="realtor-destination">
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="lead_form">Lead Form</option>
+                </select>
+              </div>
+              <div>
+                <label for="realtor-status">Status</label>
+                <select id="realtor-status">
+                  <option value="PAUSED" selected>PAUSED (safe)</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                </select>
+              </div>
+              <div>
+                <label for="realtor-advantage-audience">Advantage Audience</label>
+                <select id="realtor-advantage-audience">
+                  <option value="0" selected>Off (housing-safe)</option>
+                  <option value="1">On</option>
+                </select>
+              </div>
+              <div>
+                <label for="realtor-advantage-plus">Advantage+ Leads</label>
+                <select id="realtor-advantage-plus">
+                  <option value="off" selected>Off</option>
+                  <option value="on">On</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="dual-grid">
+              <div>
+                <label for="realtor-page-id">Facebook Page ID</label>
+                <input id="realtor-page-id" type="text" placeholder="Optional, from onboarding" />
+              </div>
+              <div>
+                <label for="realtor-ad-account">Ad Account ID</label>
+                <input id="realtor-ad-account" type="text" placeholder="Optional, from onboarding" />
+              </div>
+            </div>
+
+            <div class="dual-grid">
+              <div>
+                <label for="realtor-whatsapp">WhatsApp Number</label>
+                <input id="realtor-whatsapp" type="tel" placeholder="+919876543210" />
+              </div>
+              <div>
+                <label for="realtor-lead-form">Lead Form ID</label>
+                <input id="realtor-lead-form" type="text" placeholder="For lead form destination" />
+              </div>
+            </div>
+
+            <label for="realtor-image">Ad Image URL</label>
+            <input id="realtor-image" type="text" placeholder="https://.../property.jpg (optional)" />
+
+            <div class="row">
+              <button id="realtor-build" type="button">Build Brief</button>
+              <button id="realtor-preview" type="button" class="secondary">Preview Payloads</button>
+              <button id="realtor-create" type="button" class="secondary">Create Campaign</button>
+              <button id="realtor-report" type="button" class="secondary">Fetch Report</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="card">
+          <h3>Lead Forms &amp; Conversions API</h3>
+          <div class="triple-grid">
+            <div>
+              <label for="realtor-lf-name">Lead Form Name</label>
+              <input id="realtor-lf-name" type="text" placeholder="Sarjapur 3 BHK Enquiries" />
+            </div>
+            <div>
+              <label for="realtor-lf-privacy">Privacy Policy URL</label>
+              <input id="realtor-lf-privacy" type="text" placeholder="https://your-site.in/privacy (required)" />
+            </div>
+            <div>
+              <label for="realtor-lf-optimize">Optimize for Quality</label>
+              <select id="realtor-lf-optimize">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <button id="realtor-create-lf" type="button" class="secondary">Create Lead Form</button>
+            <span id="realtor-lf-output" class="muted inline-status"></span>
+          </div>
+          <div class="dual-grid">
+            <div>
+              <label for="realtor-leads-ad-id">Ad / Ad Account ID for Leads</label>
+              <input id="realtor-leads-ad-id" type="text" placeholder="act_123 or ad id (optional)" />
+            </div>
+            <div>
+              <label for="realtor-leads-days">Days back</label>
+              <input id="realtor-leads-days" type="number" min="1" max="90" value="7" />
+            </div>
+          </div>
+          <div class="row">
+            <button id="realtor-fetch-leads" type="button" class="secondary">Fetch Leads</button>
+            <span id="realtor-leads-output" class="muted inline-status"></span>
+          </div>
+          <div class="dual-grid">
+            <div>
+              <label for="realtor-capi-event">CAPI Event Name</label>
+              <select id="realtor-capi-event">
+                <option value="Lead">Lead</option>
+                <option value="LeadSubmitted">LeadSubmitted</option>
+                <option value="CompleteRegistration">CompleteRegistration</option>
+                <option value="Contact">Contact</option>
+              </select>
+            </div>
+            <div>
+              <label for="realtor-capi-source">Event Source URL</label>
+              <input id="realtor-capi-source" type="text" placeholder="https://your-site.in/thank-you" />
+            </div>
+          </div>
+          <div class="dual-grid">
+            <div>
+              <label for="realtor-capi-email">Lead Email</label>
+              <input id="realtor-capi-email" type="email" placeholder="buyer@example.com" />
+            </div>
+            <div>
+              <label for="realtor-capi-phone">Lead Phone</label>
+              <input id="realtor-capi-phone" type="tel" placeholder="+919876543210" />
+            </div>
+          </div>
+          <div class="row">
+            <button id="realtor-send-capi" type="button" class="secondary">Send CAPI Event</button>
+            <span id="realtor-capi-output" class="muted inline-status"></span>
+          </div>
+        </article>
+
+        <div class="dual-grid">
+          <article class="card">
+            <h3>Compliance + Scopes</h3>
+            <div id="realtor-compliance" class="stack-list">Housing ads are a restricted special ad category in India. Load scopes to see the requirements.</div>
+          </article>
+          <article class="card">
+            <h3>Parsed Brief</h3>
+            <pre id="realtor-brief" class="mono-block">Describe a project, then press Build Brief.</pre>
+          </article>
+        </div>
+
+        <article class="card">
+          <h3>Payload Preview</h3>
+          <pre id="realtor-payload" class="mono-block">Build a brief, then press Preview Payloads to inspect the campaign, ad set, creative, and ad.</pre>
+        </article>
+
+        <div class="dual-grid">
+          <article class="card">
+            <h3>Create Result</h3>
+            <pre id="realtor-result" class="mono-block">Press Create Campaign to push a paused housing campaign to Meta Ads Manager.</pre>
+          </article>
+          <article class="card">
+            <h3>Report</h3>
+            <pre id="realtor-report-output" class="mono-block">Press Fetch Report to pull campaign insights with plain-English explanations.</pre>
+          </article>
+        </div>
       </section>
 
       <section id="screen-setup" class="screen" data-screen="setup">

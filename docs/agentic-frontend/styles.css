@@ -1091,6 +1091,12 @@ body.sidebar-open .sidebar-scrim {
   justify-content: space-between;
 }
 
+.inline-status {
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 label {
   display: block;
   font-size: 12px;

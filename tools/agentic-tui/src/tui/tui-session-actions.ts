@@ -534,7 +534,7 @@ export async function loadConfigSnapshot(): Promise<ConfigSnapshot> {
     webhookCallbackUrl?: string;
     webhookVerifyToken?: string;
   };
-  const graphVersion = profileDoc?.apiVersion || parsed?.graphVersion || "v20.0";
+  const graphVersion = profileDoc?.apiVersion || parsed?.graphVersion || "v26.0";
   const scopes = Array.isArray(profileDoc?.scopes)
     ? profileDoc.scopes.map((x) => String(x))
     : Array.isArray(parsed?.scopes)

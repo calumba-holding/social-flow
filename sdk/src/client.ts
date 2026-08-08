@@ -1,4 +1,11 @@
 import type {
+  RealtorBuildInput,
+  RealtorCapiInput,
+  RealtorCreateInput,
+  RealtorLeadFormInput,
+  RealtorLeadsInput,
+  RealtorPreviewInput,
+  RealtorReportInput,
   SdkAction,
   SdkActionOptions,
   SdkEnvelope,
@@ -178,6 +185,32 @@ export class SocialFlowClient {
     plan: async (action: SdkAction, params: Record<string, unknown> = {}) => this.plan(action, params),
     execute: async (action: SdkAction, params: Record<string, unknown> = {}, options: SdkActionOptions = {}) =>
       this.execute(action, params, options)
+  };
+
+  readonly realtor = {
+    scopes: async () =>
+      this.execute("realtor_scopes", {}),
+
+    build: async (input: RealtorBuildInput) =>
+      this.execute("realtor_build", { ...input } as Record<string, unknown>),
+
+    preview: async (input: RealtorPreviewInput) =>
+      this.execute("realtor_preview", { ...input } as Record<string, unknown>),
+
+    createCampaign: async (input: RealtorCreateInput, options: SdkActionOptions = {}) =>
+      this.execute("realtor_create_campaign", { ...input } as Record<string, unknown>, options),
+
+    report: async (input: RealtorReportInput = {}) =>
+      this.execute("realtor_report", { ...input } as Record<string, unknown>),
+
+    leads: async (input: RealtorLeadsInput = {}) =>
+      this.execute("realtor_leads", { ...input } as Record<string, unknown>),
+
+    leadform: async (input: RealtorLeadFormInput, options: SdkActionOptions = {}) =>
+      this.execute("realtor_leadform", { ...input } as Record<string, unknown>, options),
+
+    capi: async (input: RealtorCapiInput, options: SdkActionOptions = {}) =>
+      this.execute("realtor_capi", { ...input } as Record<string, unknown>, options)
   };
 }
 

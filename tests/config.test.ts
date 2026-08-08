@@ -41,7 +41,7 @@ const tests = [
             activeProfile: "clientA",
             profiles: {
               default: {
-                apiVersion: "v20.0",
+                apiVersion: "v26.0",
                 defaultApi: "facebook",
                 tokens: { facebook: "fb-default-token" }
               },
@@ -129,13 +129,13 @@ const tests = [
             activeProfile: "default",
             profiles: {
               default: {
-                apiVersion: "v20.0",
+                apiVersion: "v26.0",
                 defaultApi: "facebook",
                 tokens: { facebook: "fb-old-token-12345678901234567890" },
                 defaults: { facebookPageId: "page_old" }
               },
               clientB: {
-                apiVersion: "v20.0",
+                apiVersion: "v26.0",
                 defaultApi: "facebook",
                 tokens: { facebook: "fb-client-b-token" },
                 defaults: { facebookPageId: "page_b" }

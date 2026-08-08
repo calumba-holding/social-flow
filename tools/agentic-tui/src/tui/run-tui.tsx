@@ -2370,7 +2370,7 @@ function HatchRuntime(): JSX.Element {
 
   const accountOptions = accountOptionsFromConfig(config || {
     tokenSet: false,
-    graphVersion: "v20.0",
+    graphVersion: "v26.0",
     scopes: [],
     tokenMap: { facebook: false, instagram: false, whatsapp: false }
   });
@@ -3248,7 +3248,7 @@ function HatchRuntime(): JSX.Element {
           <SectionHeading label="Diagnostics" />
           <FramedBlock title="Execution rail" borderColor={state.currentRisk === "HIGH" ? riskTone : theme.muted}>
           <Text color={phaseTone}>phase={state.phase} risk={state.currentRisk || "LOW"} confidence={confidenceLabel} action={state.currentIntent?.action || "none"} missing={state.missingSlots.join(", ") || "none"}</Text>
-          <Text color={theme.muted}>graph={config?.graphVersion || "v20.0"} account={selectedAccount}</Text>
+          <Text color={theme.muted}>graph={config?.graphVersion || "v26.0"} account={selectedAccount}</Text>
           <Select options={accountOptions} onChange={(value) => setSelectedAccount(value)} />
           {rightRailCollapsed ? (
             <Text color={theme.muted}>Press x to expand queue, logs, rollback, and result view.</Text>
